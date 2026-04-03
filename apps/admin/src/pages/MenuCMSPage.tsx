@@ -73,7 +73,7 @@ export default function MenuCMSPage() {
   })
 
   // Data Filtering
-  const filteredProducts = useMemo(() => products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.category_name?.toLowerCase().includes(searchTerm.toLowerCase())), [products, searchTerm])
+  const filteredProducts = useMemo(() => products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())), [products, searchTerm])
   const filteredCombos = useMemo(() => combos.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase())), [combos, searchTerm])
 
   const openDeleteConfirm = (title: string, message: string, onConfirm: () => void) => {
@@ -110,18 +110,18 @@ export default function MenuCMSPage() {
              </div>
              <div className="divide-y divide-white/5">
                 {filteredProducts.map((p: any) => (
-                  <div key={p.id} className={`flex items-center justify-between py-3 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors ${p.is_active ? '' : 'opacity-50'}`}>
+                  <div key={p.id} className={`flex items-center justify-between py-3 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors ${p.isActive ? '' : 'opacity-50'}`}>
                     <div>
                       <div className="flex items-center gap-2">
-                         <p className="text-sm font-medium text-white">{p.name} {!p.is_active && '(Oculto)'}</p>
-                         <span className="text-[10px] bg-white/10 text-gray-400 px-1.5 py-0.5 rounded border border-white/10">{p.category_name}</span>
+                         <p className="text-sm font-medium text-white">{p.name} {!p.isActive && '(Oculto)'}</p>
+                         <span className="text-[10px] bg-white/10 text-gray-400 px-1.5 py-0.5 rounded border border-white/10">{p.categoryName}</span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">{p.description || 'Sin descripción'} · <span className="text-brand-400 font-medium">${p.base_price?.toFixed(2)}</span></p>
+                      <p className="text-xs text-gray-500 mt-0.5">{p.description || 'Sin descripción'} · <span className="text-brand-400 font-medium">${p.basePrice?.toFixed(2)}</span></p>
                     </div>
                     <div className="flex items-center gap-3">
-                       <span className={`text-[10px] px-2 py-0.5 rounded-full hidden sm:block ${p.is_on_web_menu ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'}`}>{p.is_on_web_menu ? 'Web Visible' : 'Oculto Web'}</span>
+                       <span className={`text-[10px] px-2 py-0.5 rounded-full hidden sm:block ${p.isOnWebMenu ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-gray-500/10 text-gray-500 border border-gray-500/20'}`}>{p.isOnWebMenu ? 'Web Visible' : 'Oculto Web'}</span>
                        <div className="flex bg-white/5 rounded-lg border border-white/5 overflow-hidden">
-                         <button onClick={() => toggleProduct.mutate(p.id)} className={`p-1.5 transition-colors hover:text-white hover:bg-white/10 ${p.is_active ? 'text-emerald-400' : 'text-gray-500'}`} title={p.is_active ? 'Ocultar producto del POS' : 'Activar producto'}>{p.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}</button>
+                         <button onClick={() => toggleProduct.mutate(p.id)} className={`p-1.5 transition-colors hover:text-white hover:bg-white/10 ${p.isActive ? 'text-emerald-400' : 'text-gray-500'}`} title={p.isActive ? 'Ocultar producto del POS' : 'Activar producto'}>{p.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}</button>
                          <button onClick={() => { setEditingProduct(p); setShowProductModal(true) }} className="p-1.5 text-blue-400 hover:bg-blue-500/20 transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
                          <button onClick={() => openDeleteConfirm('Eliminar Producto', `¿Eliminar "${p.name}" permanentemente? Se removerá de cualquier combo que lo contenga.`, () => deleteProduct.mutate(p.id))} className="p-1.5 text-red-400 hover:bg-red-500/20 transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
                        </div>
@@ -141,14 +141,14 @@ export default function MenuCMSPage() {
              </div>
              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {filteredCombos.map((c: any) => (
-                  <div key={c.id} className={`bg-white/5 border border-white/5 rounded-xl p-4 flex flex-col ${c.is_active ? '' : 'opacity-50'}`}>
+                  <div key={c.id} className={`bg-white/5 border border-white/5 rounded-xl p-4 flex flex-col ${c.isActive ? '' : 'opacity-50'}`}>
                     <div className="flex justify-between items-start mb-2">
                        <div>
-                         <p className="font-bold text-white text-sm">{c.name} {!c.is_active && '(Oculto)'}</p>
+                         <p className="font-bold text-white text-sm">{c.name} {!c.isActive && '(Oculto)'}</p>
                          <p className="text-xl text-brand-400 font-bold tracking-tight">${c.price?.toFixed(2)}</p>
                        </div>
                        <div className="flex bg-black/20 rounded-lg overflow-hidden border border-white/5">
-                         <button onClick={() => toggleCombo.mutate(c.id)} className={`p-1.5 transition-colors hover:text-white ${c.is_active ? 'text-emerald-400' : 'text-gray-500'}`} title={c.is_active ? 'Ocultar Combo' : 'Mostrar Combo'}>{c.is_active ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}</button>
+                         <button onClick={() => toggleCombo.mutate(c.id)} className={`p-1.5 transition-colors hover:text-white ${c.isActive ? 'text-emerald-400' : 'text-gray-500'}`} title={c.isActive ? 'Ocultar Combo' : 'Mostrar Combo'}>{c.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}</button>
                          <button onClick={() => { setEditingCombo(c); setShowComboModal(true) }} className="p-1.5 text-blue-400 hover:bg-blue-500/20 transition-colors"><Edit className="w-3.5 h-3.5" /></button>
                          <button onClick={() => openDeleteConfirm('Eliminar Combo', `¿Eliminar "${c.name}" de forma permanente?`, () => deleteCombo.mutate(c.id))} className="p-1.5 text-red-400 hover:bg-red-500/20 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                        </div>
@@ -157,7 +157,7 @@ export default function MenuCMSPage() {
                     <div className="space-y-1 bg-black/20 rounded-lg p-2 border border-white/5">
                       {c.items?.map((item: any) => (
                         <div key={item.id} className="text-xs text-gray-300 flex justify-between">
-                          <span>{item.quantity}× {item.product_name}</span>
+                          <span>{item.quantity}× {item.productName}</span>
                         </div>
                       ))}
                     </div>

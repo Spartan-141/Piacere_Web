@@ -26,9 +26,9 @@ const ComboFormModal: React.FC<ComboFormModalProps> = ({ isOpen, onClose, combo,
           name: combo.name,
           description: combo.description || '',
           price: combo.price.toString(),
-          isOnWebMenu: combo.is_on_web_menu === 1
+          isOnWebMenu: combo.isOnWebMenu === true
         });
-        setItems(combo.items?.map((i: any) => ({ productId: i.product_id.toString(), quantity: i.quantity })) || []);
+        setItems(combo.items?.map((i: any) => ({ productId: i.productId.toString(), quantity: i.quantity })) || []);
       } else {
         setFormData({ name: '', description: '', price: '', isOnWebMenu: true });
         setItems([{ productId: products[0]?.id?.toString() || '', quantity: 1 }]);
@@ -107,7 +107,7 @@ const ComboFormModal: React.FC<ComboFormModalProps> = ({ isOpen, onClose, combo,
                   <div className="flex-1">
                     <select required value={item.productId} onChange={e => updateItem(idx, 'productId', e.target.value)} className="input-field w-full text-sm !py-1.5">
                       <option value="">Selecciona un producto</option>
-                      {products.map(p => <option key={p.id} value={p.id} className="bg-gray-900">{p.name} (${p.base_price?.toFixed(2)})</option>)}
+                      {products.map(p => <option key={p.id} value={p.id} className="bg-gray-900">{p.name} (${p.basePrice?.toFixed(2)})</option>)}
                     </select>
                   </div>
                   <div className="w-20 border-l border-white/10 pl-2">

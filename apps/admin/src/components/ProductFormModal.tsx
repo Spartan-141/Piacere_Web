@@ -24,9 +24,9 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
         setFormData({
           name: product.name,
           description: product.description || '',
-          basePrice: product.base_price.toString(),
-          categoryId: product.category_id?.toString() || (categories[0]?.id.toString() || ''),
-          isOnWebMenu: product.is_on_web_menu === 1
+          basePrice: product.basePrice.toString(),
+          categoryId: product.categoryId?.toString() || (categories[0]?.id.toString() || ''),
+          isOnWebMenu: product.isOnWebMenu === true
         });
       } else {
         setFormData({
@@ -51,7 +51,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
       basePrice: parseFloat(formData.basePrice) || 0,
       categoryId: parseInt(formData.categoryId, 10),
       isOnWebMenu: formData.isOnWebMenu,
-      isActive: product ? product.is_active : 1
+      isActive: product ? product.isActive : true
     });
   };
 

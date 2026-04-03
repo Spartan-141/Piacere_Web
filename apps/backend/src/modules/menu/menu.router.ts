@@ -9,8 +9,15 @@ export const menuRouter: RouterType = Router();
 // ── Categorías ──────────────────────────────────────────────
 menuRouter.get('/categories', (req, res) => {
   const db = getDb();
-  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order').all();
-  return res.json(cats);
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order').all() as any[];
+  const mapped = cats.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    isVisibleOnWeb: c.is_visible_on_web === 1,
+    sortOrder: c.sort_order
+  }));
+  return res.json(mapped);
 });
 
 menuRouter.post('/categories', authenticate, requireRole('admin'), (req, res) => {
@@ -57,27 +64,67 @@ menuRouter.get('/products', (req, res) => {
 
   const products = db.prepare(query).all(...params) as any[];
 
-  // Adjuntar variantes
-  const withVariants = products.map((p) => {
-    const variants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(p.id);
-    return { ...p, variants };
+  // Adjuntar variantes y mapear a camelCase
+  const mapped = products.map((p) => {
+    const rawVariants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(p.id) as any[];
+    const variants = rawVariants.map(v => ({
+      id: v.id,
+      productId: v.product_id,
+      name: v.name,
+      priceDelta: v.price_delta,
+      isActive: v.is_active === 1
+    }));
+
+    return {
+      id: p.id,
+      categoryId: p.category_id,
+      categoryName: p.category_name,
+      name: p.name,
+      description: p.description,
+      basePrice: p.base_price,
+      isActive: p.is_active === 1,
+      isOnWebMenu: p.is_on_web_menu === 1,
+      imageUrl: p.image_url,
+      createdAt: p.created_at,
+      variants
+    };
   });
 
-  return res.json(withVariants);
+  return res.json(mapped);
 });
 
 menuRouter.get('/products/:id', (req, res) => {
   const db = getDb();
-  const product = db.prepare(
+  const p = db.prepare(
     `SELECT p.*, c.name AS category_name FROM products p
      LEFT JOIN categories c ON p.category_id = c.id
      WHERE p.id = ?`
   ).get(req.params.id) as any;
 
-  if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
+  if (!p) return res.status(404).json({ error: 'Producto no encontrado' });
 
-  const variants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(product.id);
-  return res.json({ ...product, variants });
+  const rawVariants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(p.id) as any[];
+  const variants = rawVariants.map(v => ({
+    id: v.id,
+    productId: v.product_id,
+    name: v.name,
+    priceDelta: v.price_delta,
+    isActive: v.is_active === 1
+  }));
+
+  return res.json({
+    id: p.id,
+    categoryId: p.category_id,
+    categoryName: p.category_name,
+    name: p.name,
+    description: p.description,
+    basePrice: p.base_price,
+    isActive: p.is_active === 1,
+    isOnWebMenu: p.is_on_web_menu === 1,
+    imageUrl: p.image_url,
+    createdAt: p.created_at,
+    variants
+  });
 });
 
 const productSchema = z.object({
@@ -153,17 +200,38 @@ menuRouter.get('/combos', (req, res) => {
   if (webOnly) query += ' AND is_on_web_menu = 1';
 
   const combos = db.prepare(query).all() as any[];
-  const withItems = combos.map((combo) => {
-    const items = db.prepare(
+  const mapped = combos.map((combo) => {
+    const rawItems = db.prepare(
       `SELECT ci.*, p.name AS product_name, pv.name AS variant_name
        FROM combo_items ci
        JOIN products p ON ci.product_id = p.id
        LEFT JOIN product_variants pv ON ci.variant_id = pv.id
        WHERE ci.combo_id = ?`
-    ).all(combo.id);
-    return { ...combo, items };
+    ).all(combo.id) as any[];
+    
+    const items = rawItems.map(i => ({
+      id: i.id,
+      comboId: i.combo_id,
+      productId: i.product_id,
+      productName: i.product_name,
+      variantId: i.variant_id,
+      variantName: i.variant_name,
+      quantity: i.quantity
+    }));
+
+    return {
+      id: combo.id,
+      name: combo.name,
+      description: combo.description,
+      price: combo.price,
+      isActive: combo.is_active === 1,
+      isOnWebMenu: combo.is_on_web_menu === 1,
+      validFrom: combo.valid_from,
+      validUntil: combo.valid_until,
+      items
+    };
   });
-  return res.json(withItems);
+  return res.json(mapped);
 });
 
 const comboSchema = z.object({
