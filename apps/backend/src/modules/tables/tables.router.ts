@@ -11,7 +11,15 @@ export const tablesRouter = Router();
 // GET /api/tables/sections
 tablesRouter.get('/sections', authenticate, (req, res) => {
   const db = getDb();
-  const sections = db.prepare('SELECT * FROM table_sections WHERE is_active = 1 ORDER BY name').all();
+  const showAll = req.query.all === 'true';
+  const query = `
+    SELECT s.*, 
+      (SELECT COUNT(*) FROM tables WHERE section_id = s.id) as tableCount
+    FROM table_sections s
+    ${showAll ? '' : 'WHERE s.is_active = 1'}
+    ORDER BY s.name
+  `;
+  const sections = db.prepare(query).all();
   return res.json(sections);
 });
 
@@ -29,6 +37,29 @@ tablesRouter.put('/sections/:id', authenticate, requireRole('admin'), (req, res)
   const { name, prefix } = req.body;
   db.prepare('UPDATE table_sections SET name = ?, prefix = ? WHERE id = ?').run(name, prefix, req.params.id);
   return res.json({ message: 'Sección actualizada' });
+});
+
+// PATCH /api/tables/sections/:id/toggle-active
+tablesRouter.patch('/sections/:id/toggle-active', authenticate, requireRole('admin'), (req, res) => {
+  const db = getDb();
+  const sectionId = req.params.id;
+  const section = db.prepare('SELECT is_active FROM table_sections WHERE id = ?').get(sectionId) as any;
+  if (!section) return res.status(404).json({ error: 'Sección no encontrada' });
+  
+  const willDeactivate = section.is_active === 1;
+
+  if (willDeactivate) {
+    // Validar que no haya mesas ocupadas en esta sección antes de ocultar
+    const activeTables = db.prepare("SELECT id FROM tables WHERE section_id = ? AND status != 'free'").all(sectionId);
+    if (activeTables.length > 0) {
+      return res.status(400).json({ error: 'No se puede ocultar la zona porque tiene mesas ocupadas o reservadas.' });
+    }
+  }
+  
+  const nextStatus = willDeactivate ? 0 : 1;
+  db.prepare('UPDATE table_sections SET is_active = ? WHERE id = ?').run(nextStatus, sectionId);
+  
+  return res.json({ message: nextStatus === 1 ? 'Sección activada' : 'Sección ocultada', is_active: nextStatus });
 });
 
 // DELETE /api/tables/sections/:id
@@ -56,8 +87,8 @@ tablesRouter.delete('/sections/:id', authenticate, requireRole('admin'), (req, r
     db.prepare('DELETE FROM tables WHERE section_id = ?').run(sectionId);
   }
 
-  db.prepare('UPDATE table_sections SET is_active = 0 WHERE id = ?').run(sectionId);
-  return res.json({ message: 'Sección eliminada' });
+  db.prepare('DELETE FROM table_sections WHERE id = ?').run(sectionId);
+  return res.json({ message: 'Sección eliminada físicamente' });
 });
 
 
@@ -68,12 +99,14 @@ tablesRouter.delete('/sections/:id', authenticate, requireRole('admin'), (req, r
 // GET /api/tables
 tablesRouter.get('/', authenticate, (req, res) => {
   const db = getDb();
+  // Solo devolvemos mesas de secciones ACTIVAS
   const tables = db.prepare(`
     SELECT t.*, s.name as sectionName,
       (SELECT o.id FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') LIMIT 1) AS current_order_id,
       (SELECT o.total FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') LIMIT 1) AS current_order_total
     FROM tables t
-    LEFT JOIN table_sections s ON t.section_id = s.id
+    JOIN table_sections s ON t.section_id = s.id
+    WHERE s.is_active = 1
     ORDER BY s.name, t.id
   `).all();
   return res.json(tables);

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, ShoppingBag, Plus, Settings } from 'lucide-react'
+import { Users, ShoppingBag, Plus, Settings, Eye, EyeOff, Trash2 } from 'lucide-react'
 import api from '../services/api'
+import ConfirmModal from '../components/ConfirmModal'
 
 const statusColors: Record<string, string> = {
   free:          'bg-emerald-500/10 border-emerald-500/40 text-emerald-400',
@@ -25,6 +26,20 @@ export default function TablesPage() {
   const qc = useQueryClient()
   const [showSectionModal, setShowSectionModal] = useState(false)
   const [showTableModal, setShowTableModal] = useState(false)
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    confirmText?: string;
+    cancelText?: string;
+    type?: 'danger' | 'warning' | 'info' | 'primary';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
 
   const { data: tables = [], isLoading: loadingTables } = useQuery({
     queryKey: ['tables'],
@@ -33,8 +48,8 @@ export default function TablesPage() {
   })
 
   const { data: sections = [] } = useQuery({
-    queryKey: ['sections'],
-    queryFn: () => api.get('/tables/sections').then(r => r.data),
+    queryKey: ['sections', showSectionModal], // Reload when modal opens to get "all"
+    queryFn: () => api.get(`/tables/sections${showSectionModal ? '?all=true' : ''}`).then(r => r.data),
   })
 
   const updateStatus = useMutation({
@@ -61,17 +76,47 @@ export default function TablesPage() {
       api.delete(`/tables/sections/${id}${force ? '?force=true' : ''}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['sections'] })
-      qc.invalidateQueries({ queryKey: ['tables'] }) // Also invalidate tables if they were deleted
+      qc.invalidateQueries({ queryKey: ['tables'] })
+      setConfirmState(prev => ({ ...prev, isOpen: false }))
     },
     onError: (error: any, variables) => {
       const resp = error.response?.data;
       if (resp?.error === 'CONFIRM_TABLE_DELETE') {
-        if (window.confirm(resp.message)) {
-          deleteSection.mutate({ id: variables.id, force: true });
-        }
+        setConfirmState({
+          isOpen: true,
+          title: 'Eliminar Zona con Mesas',
+          message: resp.message,
+          type: 'warning',
+          onConfirm: () => deleteSection.mutate({ id: variables.id, force: true })
+        });
       } else {
-        alert(resp?.error || 'Error al eliminar zona');
+        setConfirmState({
+          isOpen: true,
+          title: 'Error',
+          message: resp?.error || 'No se pudo realizar la acción.',
+          type: 'danger',
+          onConfirm: () => setConfirmState(prev => ({ ...prev, isOpen: false }))
+        });
       }
+    }
+  })
+
+  const toggleSection = useMutation({
+    mutationFn: (id: number) => api.patch(`/tables/sections/${id}/toggle-active`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sections'] })
+      qc.invalidateQueries({ queryKey: ['tables'] })
+    },
+    onError: (error: any) => {
+      const resp = error.response?.data;
+      setConfirmState({
+        isOpen: true,
+        title: 'Atención',
+        message: resp?.error || 'No se puede realizar esta acción en este momento.',
+        type: 'warning',
+        confirmText: 'Entendido',
+        onConfirm: () => setConfirmState(prev => ({ ...prev, isOpen: false }))
+      });
     }
   })
 
@@ -183,12 +228,47 @@ export default function TablesPage() {
             <h3 className="text-lg font-bold text-white mb-4">Administrar Zonas (Secciones)</h3>
             <div className="space-y-4 mb-4">
               {sections.map((sec: any) => (
-                <div key={sec.id} className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
-                  <div>
-                    <p className="font-semibold text-white text-sm">{sec.name}</p>
-                    <p className="text-xs text-gray-500">Prefijo: {sec.prefix}</p>
+                <div key={sec.id} className={`flex justify-between items-center bg-white/5 p-3 rounded-lg border transition-opacity ${sec.is_active ? 'border-white/5 opacity-100' : 'border-red-500/20 opacity-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={sec.is_active ? 'text-emerald-500' : 'text-gray-500'}>
+                       {sec.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white text-sm">{sec.name} {!sec.is_active && '(Oculto)'}</p>
+                      <div className="flex gap-2 items-center">
+                        <p className="text-xs text-gray-500">Prefijo: {sec.prefix}</p>
+                        <span className="text-[10px] bg-white/5 px-1.5 py-0.5 rounded border border-white/5 text-gray-400">
+                          {sec.tableCount} {sec.tableCount === 1 ? 'mesa' : 'mesas'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <button onClick={() => deleteSection.mutate({ id: sec.id })} className="btn-danger !py-1 !px-2 text-xs">Eliminar</button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => toggleSection.mutate(sec.id)} 
+                      className={`!py-1 !px-2 text-xs rounded-md border font-medium transition-colors ${
+                        sec.is_active 
+                          ? 'bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20' 
+                          : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+                      }`}
+                    >
+                      {sec.is_active ? 'Ocultar' : 'Mostrar'}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setConfirmState({
+                          isOpen: true,
+                          title: '¿Eliminar Zona?',
+                          message: `¿Estás seguro de que deseas eliminar permanentemente la zona "${sec.name}"? Esta acción no se puede deshacer.`,
+                          type: 'danger',
+                          onConfirm: () => deleteSection.mutate({ id: sec.id })
+                        })
+                      }} 
+                      className="btn-danger !py-1 !px-2 text-xs flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" /> Eliminar
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -245,6 +325,11 @@ export default function TablesPage() {
           </div>
         </div>
       )}
+      {/* --- MODAL DE CONFIRMACIÓN CUSTOM --- */}
+      <ConfirmModal 
+        {...confirmState}
+        onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }
