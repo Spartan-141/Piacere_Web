@@ -8,6 +8,7 @@ import TablesPage from './pages/TablesPage'
 import InventoryPage from './pages/InventoryPage'
 import MenuCMSPage from './pages/MenuCMSPage'
 import CustomersPage from './pages/CustomersPage'
+import OrdersPage from './pages/OrdersPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="pos" element={<POSPage />} />
         <Route path="tables" element={<TablesPage />} />
+        <Route path="orders" element={<OrdersPage />} />
         <Route path="inventory" element={<InventoryPage />} />
         <Route path="menu-cms" element={<MenuCMSPage />} />
         <Route path="customers" element={<CustomersPage />} />

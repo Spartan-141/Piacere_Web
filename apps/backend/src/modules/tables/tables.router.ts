@@ -102,14 +102,38 @@ tablesRouter.get('/', authenticate, (req, res) => {
   // Solo devolvemos mesas de secciones ACTIVAS
   const tables = db.prepare(`
     SELECT t.*, s.name as sectionName,
-      (SELECT o.id FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') LIMIT 1) AS current_order_id,
-      (SELECT o.total FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') LIMIT 1) AS current_order_total
+      (SELECT o.id FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') ORDER BY o.created_at DESC LIMIT 1) AS current_order_id,
+      (SELECT o.total FROM orders o WHERE o.table_id = t.id AND o.status NOT IN ('delivered','cancelled') ORDER BY o.created_at DESC LIMIT 1) AS current_order_total
     FROM tables t
     JOIN table_sections s ON t.section_id = s.id
     WHERE s.is_active = 1
     ORDER BY s.name, t.id
   `).all();
   return res.json(tables);
+});
+
+// GET /api/tables/:id/active-order
+tablesRouter.get('/:id/active-order', authenticate, (req, res) => {
+  const db = getDb();
+  const order = db.prepare(`
+    SELECT o.* 
+    FROM orders o 
+    WHERE o.table_id = ? AND o.status NOT IN ('delivered', 'cancelled') 
+    ORDER BY o.created_at DESC LIMIT 1
+  `).get(req.params.id) as any;
+
+  if (!order) return res.status(404).json({ error: 'No hay orden activa para esta mesa' });
+
+  const items = db.prepare(`
+    SELECT oi.*, p.name AS product_name, pv.name AS variant_name, c.name AS combo_name
+    FROM order_items oi
+    LEFT JOIN products p ON oi.product_id = p.id
+    LEFT JOIN product_variants pv ON oi.variant_id = pv.id
+    LEFT JOIN combos c ON oi.combo_id = c.id
+    WHERE oi.order_id = ?
+  `).all(order.id);
+
+  return res.json({ ...order, items });
 });
 
 // PATCH /api/tables/:id/status

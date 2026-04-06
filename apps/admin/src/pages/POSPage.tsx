@@ -81,9 +81,79 @@ function PaymentModal({ total, onClose, onConfirm }: {
   )
 }
 
+// ── Table Select Modal ─────────────────────────────────────────
+function TableSelectModal({ onClose, onSelect }: { onClose: () => void; onSelect: (tableId: number, tableName: string) => void }) {
+  const { data: sections = [] } = useQuery({
+    queryKey: ['tables-sections-pos'],
+    queryFn: () => api.get('/tables/sections').then(r => r.data)
+  })
+  
+  const { data: tables = [] } = useQuery({
+    queryKey: ['tables-pos'],
+    queryFn: () => api.get('/tables').then(r => r.data)
+  })
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel w-full max-w-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-white">Asignar Mesa</h3>
+          <button onClick={onClose} className="btn-ghost p-1"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+          {sections.map((sec: any) => {
+            const secTables = tables.filter((t: any) => t.section_id === sec.id && t.status === 'free')
+            if (secTables.length === 0) return null
+            return (
+              <div key={sec.id}>
+                <h4 className="text-gray-400 text-sm font-medium mb-3">{sec.name} (Libres)</h4>
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  {secTables.map((t: any) => (
+                    <button
+                      key={t.id}
+                      onClick={() => onSelect(t.id, t.name)}
+                      className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-emerald-500/20 hover:scale-105 transition-all"
+                    >
+                      <span className="font-bold">{t.name}</span>
+                      <span className="text-[10px] uppercase">Libre</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+          {tables.filter((t: any) => t.status === 'free').length === 0 && (
+            <div className="text-center text-gray-500 py-10">No hay mesas libres disponibles.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Cart Panel ───────────────────────────────────────────────
-function CartPanel({ onConfirm }: { onConfirm: () => void }) {
-  const { items, subtotal, total, discount, setDiscount, removeItem, updateQuantity, clearCart } = useCartStore()
+function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: { 
+  onAssignTable: () => void; 
+  onSendToKitchen: () => void; 
+  onQuickPay: () => void 
+}) {
+  const { items, subtotal, total, discount, setDiscount, removeItem, updateQuantity, clearCart, tableId } = useCartStore()
+
+  // Find table name if assigned (Optional enhancement: fetch table name, or just show ID for now)
+  const [tableName, setTableName] = useState<string | null>(null)
+  
+  // We fetch tables to resolve the table name
+  const { data: tables = [] } = useQuery({
+    queryKey: ['tables-pos'],
+    queryFn: () => api.get('/tables').then(r => r.data)
+  })
+
+  // Set tableName based on selected tableId
+  if (tableId && !tableName && tables.length > 0) {
+    const t = tables.find((t: any) => t.id === tableId)
+    if (t) setTableName(t.name)
+  }
 
   if (items.length === 0) {
     return (
@@ -97,6 +167,13 @@ function CartPanel({ onConfirm }: { onConfirm: () => void }) {
 
   return (
     <>
+      {tableId && (
+        <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-2 mb-2 flex justify-between items-center">
+           <span className="text-brand-300 text-xs font-semibold">Mesa Asignada:</span>
+           <span className="text-white text-sm font-bold">{tableName || `#${tableId}`}</span>
+           <button onClick={() => { useCartStore.getState().setTable(null); setTableName(null) }} className="text-gray-400 hover:text-red-400"><X className="w-4 h-4" /></button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {items.map(item => (
           <div key={item.id} className="bg-white/4 rounded-lg px-3 py-2.5">
@@ -136,13 +213,29 @@ function CartPanel({ onConfirm }: { onConfirm: () => void }) {
             className="input-field flex-1 text-sm py-1 px-2" min="0" step="0.5"
           />
         </div>
-        <div className="flex justify-between font-bold text-white">
+        <div className="flex justify-between font-bold text-white mb-2">
           <span>Total</span><span className="text-brand-400">${total().toFixed(2)}</span>
         </div>
-        <button id="btn-pay" onClick={onConfirm} className="btn-primary w-full py-2.5 mt-1">
-          Cobrar ${total().toFixed(2)}
-        </button>
-        <button onClick={clearCart} className="btn-ghost w-full text-xs text-gray-600">
+        {/* Actions */}
+        <div className="grid grid-cols-2 gap-2">
+          {!tableId && (
+            <button onClick={onAssignTable} className="col-span-2 btn-secondary py-2 text-sm border-dashed">
+               + Asignar Mesa
+            </button>
+          )}
+          
+          <button onClick={onSendToKitchen} className={`${tableId ? 'col-span-2' : ''} btn-primary py-2 text-sm bg-blue-600 hover:bg-blue-700 shadow-blue-900/20 shadow-lg`}>
+             A Cocina
+          </button>
+          
+          {!tableId && (
+            <button onClick={onQuickPay} className="btn-primary py-2 text-sm bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20 shadow-lg">
+               Pagar
+            </button>
+          )}
+        </div>
+        
+        <button onClick={clearCart} className="btn-ghost w-full text-xs text-gray-600 mt-2">
           Limpiar carrito
         </button>
       </div>
@@ -150,14 +243,13 @@ function CartPanel({ onConfirm }: { onConfirm: () => void }) {
   )
 }
 
-// ── Main POS Page ─────────────────────────────────────────────
 export default function POSPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [showPayment, setShowPayment] = useState(false)
-  const [selectedVariants, setSelectedVariants] = useState<Record<number, number | null>>({})
-  const { addItem, items, total } = useCartStore()
+  const [showTableSelect, setShowTableSelect] = useState(false)
+  const { addItem, items, total, tableId, setTable } = useCartStore()
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -181,18 +273,41 @@ export default function POSPage() {
   )
 
   const handleAddToCart = (product: Product) => {
-    const variantId = selectedVariants[product.id] ?? null
-    const variant = variantId != null
-      ? product.variants?.find((v: ProductVariant) => v.id === variantId) ?? null
-      : null
-    addItem(product, variant)
+    // Añadir siempre la variante principal o nulo
+    const mainVariant = product.variants?.[0] ?? null
+    addItem(product, mainVariant)
+  }
+
+  const handleSendOrder = async () => {
+    const { items: cartItems, tableId, orderType, discount } = useCartStore.getState()
+    if (cartItems.length === 0) return
+
+    try {
+      await createOrder.mutateAsync({
+        type: tableId ? 'dine_in' : 'takeaway',
+        source: 'pos',
+        tableId: tableId || undefined,
+        discount,
+        items: cartItems.map(i => ({
+          productId: i.productId,
+          variantId: i.variantId || undefined,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+          notes: i.notes,
+        })),
+      })
+      useCartStore.getState().clearCart()
+      // Opcional: mostrar notificación de éxito
+    } catch (err) {
+      console.error('Error creando pedido', err)
+    }
   }
 
   const handleConfirmOrder = async (payments: any[]) => {
     const { items: cartItems, tableId, orderType, discount } = useCartStore.getState()
     try {
       const order = await createOrder.mutateAsync({
-        type: orderType,
+        type: tableId ? 'dine_in' : 'takeaway',
         source: 'pos',
         tableId: tableId || undefined,
         discount,
@@ -211,7 +326,7 @@ export default function POSPage() {
       useCartStore.getState().clearCart()
       setShowPayment(false)
     } catch (err) {
-      console.error('Error creando pedido', err)
+      console.error('Error creando pedido con pago', err)
     }
   }
 
@@ -232,26 +347,21 @@ export default function POSPage() {
               className="input-field w-full pl-9"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setSelectedCategory(null)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                selectedCategory === null ? 'bg-brand-500/20 border-brand-500/40 text-brand-300' : 'border-white/10 text-gray-400 hover:bg-white/5'
-              }`}
+          {/* Categories Dropdown */}
+          <div className="relative min-w-48">
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
+              className="input-field w-full appearance-none pr-10"
             >
-              Todos
-            </button>
-            {categories.map((cat: any) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
-                  selectedCategory === cat.id ? 'bg-brand-500/20 border-brand-500/40 text-brand-300' : 'border-white/10 text-gray-400 hover:bg-white/5'
-                }`}
-              >
-                {cat.name}
-              </button>
-            ))}
+              <option value="">Todas las Categorías</option>
+              {categories.map((cat: any) => (
+                <option key={cat.id} value={cat.id} className="bg-gray-900">
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
           </div>
         </div>
 
@@ -267,33 +377,9 @@ export default function POSPage() {
                   )}
                 </div>
 
-                {/* Variant selector */}
-                {product.variants && product.variants.length > 0 && (
-                  <div className="relative">
-                    <select
-                      value={selectedVariants[product.id] ?? ''}
-                      onChange={e => setSelectedVariants(prev => ({
-                        ...prev,
-                        [product.id]: e.target.value ? parseInt(e.target.value) : null
-                      }))}
-                      className="w-full input-field text-xs py-1 pr-6 appearance-none"
-                    >
-                      <option value="">Base</option>
-                      {product.variants.map((v: ProductVariant) => (
-                        <option key={v.id} value={v.id}>{v.name}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mt-2">
                   <span className="text-brand-400 font-bold text-sm">
-                    ${(() => {
-                      const varId = selectedVariants[product.id]
-                      const variant = varId != null ? product.variants?.find(v => v.id === varId) : null
-                      return (product.basePrice + (variant?.priceDelta ?? 0)).toFixed(2)
-                    })()}
+                    ${(product.basePrice + (product.variants?.[0]?.priceDelta ?? 0)).toFixed(2)}
                   </span>
                   <button
                     id={`add-product-${product.id}`}
@@ -314,7 +400,11 @@ export default function POSPage() {
         <h2 className="text-sm font-semibold text-gray-300 mb-3">
           Pedido · <span className="text-brand-400">{items.length} ítem{items.length !== 1 ? 's' : ''}</span>
         </h2>
-        <CartPanel onConfirm={() => setShowPayment(true)} />
+        <CartPanel 
+          onAssignTable={() => setShowTableSelect(true)} 
+          onSendToKitchen={handleSendOrder} 
+          onQuickPay={() => setShowPayment(true)} 
+        />
       </div>
 
       {/* Payment Modal */}
@@ -323,6 +413,17 @@ export default function POSPage() {
           total={total()}
           onClose={() => setShowPayment(false)}
           onConfirm={handleConfirmOrder}
+        />
+      )}
+
+      {/* Table Select Modal */}
+      {showTableSelect && (
+        <TableSelectModal
+          onClose={() => setShowTableSelect(false)}
+          onSelect={(id, name) => {
+            setTable(id)
+            setShowTableSelect(false)
+          }}
         />
       )}
     </div>

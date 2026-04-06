@@ -141,7 +141,7 @@ ordersRouter.post('/', authenticate, validate(createOrderSchema), (req, res) => 
 
     // Actualizar estado de mesa
     if (tableId && type === 'dine_in') {
-      db.prepare("UPDATE tables SET status = 'occupied' WHERE id = ?").run(tableId);
+      db.prepare("UPDATE tables SET status = 'waiting_order' WHERE id = ?").run(tableId);
     }
 
     return orderId;

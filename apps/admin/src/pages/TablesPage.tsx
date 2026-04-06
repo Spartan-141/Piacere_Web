@@ -3,6 +3,89 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Users, ShoppingBag, Plus, Settings, Eye, EyeOff, Trash2 } from 'lucide-react'
 import api from '../services/api'
 import ConfirmModal from '../components/ConfirmModal'
+import { useNavigate } from 'react-router-dom'
+import { useCartStore } from '../store/useCartStore'
+
+// ── Active Order Modal ───────────────────────────────────────
+function ActiveOrderModal({ tableId, onClose, onPay }: { tableId: number; onClose: () => void; onPay: (total: number, orderId: number) => void }) {
+  const { data: order, isLoading } = useQuery({
+    queryKey: ['active-order', tableId],
+    queryFn: () => api.get(`/tables/${tableId}/active-order`).then(r => r.data)
+  })
+
+  // Using our cart's POS link mechanism
+  const navigate = useNavigate()
+  const { setTable, clearCart } = useCartStore()
+
+  const handleOrderMore = () => {
+    clearCart()
+    setTable(tableId)
+    navigate('/pos')
+  }
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="p-6 text-white font-medium">Cargando cuenta...</div>
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="glass-panel w-full max-w-sm p-6 text-center">
+          <p className="text-gray-400 mb-4">No se encontró una orden activa para esta mesa.</p>
+          <button onClick={onClose} className="btn-secondary w-full">Cerrar</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel w-full max-w-md p-6 flex flex-col max-h-[85vh]">
+        <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-4">
+          <div>
+            <h3 className="text-xl font-bold text-white">Cuenta Mesa #{tableId}</h3>
+            <p className="text-xs text-gray-400 uppercase tracking-widest">{order.order_number} · {order.status}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white"><EyeOff className="w-5 h-5"/></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+          {order.items?.map((item: any) => (
+            <div key={item.id} className="flex justify-between items-center text-sm border-b border-white/5 pb-2">
+              <div className="text-gray-300">
+                <span className="font-bold text-white mr-2">{item.quantity}×</span>
+                {item.product_name} {item.variant_name ? `(${item.variant_name})` : ''}
+              </div>
+              <div className="text-brand-400 font-medium">
+                ${(item.unit_price * item.quantity).toFixed(2)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-white/10">
+           <div className="flex justify-between items-center mb-6">
+             <span className="text-gray-400 font-medium">Total Acumulado</span>
+             <span className="text-2xl font-bold text-white">${order.total.toFixed(2)}</span>
+           </div>
+           
+           <div className="grid grid-cols-2 gap-3">
+             <button onClick={handleOrderMore} className="btn-secondary flex justify-center items-center gap-2">
+               <Plus className="w-4 h-4"/> Pedir Más
+             </button>
+             <button onClick={() => onPay(order.total, order.id)} className="btn-primary flex justify-center items-center gap-2 bg-emerald-600 hover:bg-emerald-700 border-none">
+               <ShoppingBag className="w-4 h-4"/> Cobrar
+             </button>
+           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const statusColors: Record<string, string> = {
   free:          'bg-emerald-500/10 border-emerald-500/40 text-emerald-400',
@@ -40,6 +123,10 @@ export default function TablesPage() {
     message: '',
     onConfirm: () => {},
   });
+
+  const [activeTableOrder, setActiveTableOrder] = useState<number | null>(null)
+  const navigate = useNavigate()
+  const { setTable, clearCart } = useCartStore()
 
   const { data: tables = [], isLoading: loadingTables } = useQuery({
     queryKey: ['tables'],
@@ -121,9 +208,10 @@ export default function TablesPage() {
   })
 
   const handleOpenOrder = (tableId: number) => {
-    // Aquí invocaremos la lógica del POS asociada a esta tabla.
-    // Ej: setTableContext(tableId) -> navigate('/pos')
-    alert(`Redirigiendo a registro POS para la Mesa #${tableId}. (Próximamente)`)
+    // Navigate straight to POS ready to order
+    clearCart()
+    setTable(tableId)
+    navigate('/pos')
   }
 
   const groupedTables: Record<string, any[]> = {}
@@ -205,15 +293,24 @@ export default function TablesPage() {
                     {table.status === 'served' ? 'Limpiar' : 'Entregada'}
                   </button>
 
-                  <button
-                    onClick={() => {
-                        updateStatus.mutate({ id: table.id, status: 'waiting_order' })
-                        handleOpenOrder(table.id)
-                    }}
-                    className="col-span-2 text-xs py-1.5 rounded-lg font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                  >
-                    Abrir Pedido
-                  </button>
+                  {table.current_order_id ? (
+                    <button
+                      onClick={() => setActiveTableOrder(table.id)}
+                      className="col-span-2 text-xs py-1.5 rounded-lg font-medium bg-brand-500/10 text-brand-400 hover:bg-brand-500/20 border border-brand-500/30"
+                    >
+                      Ver Cuenta (${table.current_order_total?.toFixed(2)})
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                          updateStatus.mutate({ id: table.id, status: 'waiting_order' })
+                          handleOpenOrder(table.id)
+                      }}
+                      className="col-span-2 text-xs py-1.5 rounded-lg font-medium bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                    >
+                      Abrir Pedido
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -325,6 +422,18 @@ export default function TablesPage() {
           </div>
         </div>
       )}
+      {/* --- MODAL ORDEN ACTIVA --- */}
+      {activeTableOrder && (
+        <ActiveOrderModal
+          tableId={activeTableOrder}
+          onClose={() => setActiveTableOrder(null)}
+          onPay={(total, orderId) => {
+             alert(`Cobro de $${total.toFixed(2)} por implementar. Redirigiendo al POS.`);
+             setActiveTableOrder(null)
+          }}
+        />
+      )}
+      
       {/* --- MODAL DE CONFIRMACIÓN CUSTOM --- */}
       <ConfirmModal 
         {...confirmState}
