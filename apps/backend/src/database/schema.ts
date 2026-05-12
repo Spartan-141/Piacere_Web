@@ -1,6 +1,4 @@
-import Database from 'better-sqlite3';
-
-export function runMigrations(db: Database.Database): void {
+export function runMigrations(db: any): void {
   db.exec(`
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;

@@ -1,14 +1,8 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
-import { runMigrations } from './schema';
+import { getDb } from './client';
 
-dotenv.config();
-
-const DB_PATH = process.env.DB_PATH || './piacere.db';
-const db = new Database(path.resolve(DB_PATH));
-runMigrations(db);
+const db = getDb();
+// runMigrations(db); ya lo hace getDb()
 
 async function seed() {
   console.log('🌱 Iniciando seed de datos...');
