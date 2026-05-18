@@ -5,16 +5,18 @@ import api from '../services/api'
 import ConfirmModal from '../components/ConfirmModal'
 import ProductFormModal from '../components/ProductFormModal'
 import ComboFormModal from '../components/ComboFormModal'
+import ExtraFormModal from '../components/ExtraFormModal'
 
 export default function MenuCMSPage() {
   const qc = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'products'|'combos'|'categories'>('products')
+  const [activeTab, setActiveTab] = useState<'products'|'combos'|'categories'|'extras'>('products')
   const [searchTerm, setSearchTerm] = useState('')
   
   // Queries
   const { data: categories = [] } = useQuery({ queryKey: ['categories'], queryFn: () => api.get('/menu/categories').then(r => r.data) })
   const { data: products = [] } = useQuery({ queryKey: ['products-all'], queryFn: () => api.get('/menu/products?all=true').then(r => r.data).catch(() => api.get('/menu/products').then(r => r.data)) })
   const { data: combos = [] } = useQuery({ queryKey: ['combos'], queryFn: () => api.get('/menu/combos?all=true').then(r => r.data).catch(() => api.get('/menu/combos').then(r => r.data)) })
+  const { data: extras = [] } = useQuery({ queryKey: ['extras-all'], queryFn: () => api.get('/menu/extras?all=true').then(r => r.data).catch(() => api.get('/menu/extras').then(r => r.data)) })
 
   // Modals state
   const [showProductModal, setShowProductModal] = useState(false)
@@ -22,6 +24,9 @@ export default function MenuCMSPage() {
   
   const [showComboModal, setShowComboModal] = useState(false)
   const [editingCombo, setEditingCombo] = useState<any>(null)
+
+  const [showExtraModal, setShowExtraModal] = useState(false)
+  const [editingExtra, setEditingExtra] = useState<any>(null)
 
   const [confirmState, setConfirmState] = useState<{isOpen: boolean, title: string, message: string, type?: any, onConfirm: () => void}>({ isOpen: false, title: '', message: '', type: 'danger', onConfirm: () => {} })
 
@@ -72,9 +77,20 @@ export default function MenuCMSPage() {
     }
   })
 
+  // Mutations (Extras)
+  const saveExtra = useMutation({
+    mutationFn: (data: any) => data.id ? api.put(`/menu/extras/${data.id}`, data) : api.post('/menu/extras', data),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['extras-all'] }); setShowExtraModal(false); setEditingExtra(null) }
+  })
+  const deleteExtra = useMutation({
+    mutationFn: (id: number) => api.delete(`/menu/extras/${id}`),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['extras-all'] }); setConfirmState(p => ({...p, isOpen: false})) }
+  })
+
   // Data Filtering
   const filteredProducts = useMemo(() => products.filter((p: any) => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.categoryName?.toLowerCase().includes(searchTerm.toLowerCase())), [products, searchTerm])
   const filteredCombos = useMemo(() => combos.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase())), [combos, searchTerm])
+  const filteredExtras = useMemo(() => extras.filter((e: any) => e.name.toLowerCase().includes(searchTerm.toLowerCase())), [extras, searchTerm])
 
   const openDeleteConfirm = (title: string, message: string, onConfirm: () => void) => {
     setConfirmState({ isOpen: true, title, message, type: 'danger', onConfirm })
@@ -97,6 +113,7 @@ export default function MenuCMSPage() {
 
       <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
         <button onClick={() => setActiveTab('products')} className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'products' ? 'text-brand-400 border-brand-500' : 'text-gray-400 border-transparent hover:text-white'}`}><Coffee className="w-4 h-4"/> Productos</button>
+        <button onClick={() => setActiveTab('extras')} className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'extras' ? 'text-brand-400 border-brand-500' : 'text-gray-400 border-transparent hover:text-white'}`}><Plus className="w-4 h-4"/> Adicionales</button>
         <button onClick={() => setActiveTab('combos')} className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'combos' ? 'text-brand-400 border-brand-500' : 'text-gray-400 border-transparent hover:text-white'}`}><Package className="w-4 h-4"/> Combos</button>
         <button onClick={() => setActiveTab('categories')} className={`flex items-center gap-2 px-4 py-2 font-medium text-sm border-b-2 transition-colors whitespace-nowrap ${activeTab === 'categories' ? 'text-brand-400 border-brand-500' : 'text-gray-400 border-transparent hover:text-white'}`}><Tag className="w-4 h-4"/> Categorías</button>
       </div>
@@ -192,7 +209,40 @@ export default function MenuCMSPage() {
              </div>
            </div>
         )}
+
+         {activeTab === 'extras' && (
+           <div className="card max-w-3xl mx-auto">
+             <div className="flex justify-between items-center mb-4">
+               <h2 className="text-sm font-semibold text-gray-300">Gestión de Adicionales ({filteredExtras.length})</h2>
+               <button onClick={() => { setEditingExtra(null); setShowExtraModal(true) }} className="btn-primary flex items-center gap-2 !py-1.5 !px-3 text-sm"><Plus className="w-4 h-4"/> Añadir</button>
+             </div>
+             
+             <div className="grid gap-3 sm:grid-cols-2">
+                {filteredExtras.map((e: any) => (
+                  <div key={e.id} className={`flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5 hover:bg-white/10 transition-colors ${e.isActive ? '' : 'opacity-50'}`}>
+                     <div>
+                       <p className="font-semibold text-white text-sm">{e.name} {!e.isActive && '(Oculto)'}</p>
+                       <p className="text-brand-400 font-bold text-sm">${e.price?.toFixed(2)}</p>
+                     </div>
+                     <div className="flex bg-black/20 rounded-lg overflow-hidden border border-white/5">
+                        <button onClick={() => saveExtra.mutate({...e, isActive: !e.isActive})} className={`p-1.5 transition-colors hover:text-white ${e.isActive ? 'text-emerald-400' : 'text-gray-500'}`} title={e.isActive ? 'Ocultar' : 'Activar'}>{e.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}</button>
+                        <button onClick={() => { setEditingExtra(e); setShowExtraModal(true) }} className="p-1.5 text-blue-400 hover:bg-blue-500/20 transition-colors"><Edit className="w-4 h-4" /></button>
+                        <button onClick={() => openDeleteConfirm('Eliminar Extra', `¿Eliminar adicional "${e.name}"?`, () => deleteExtra.mutate(e.id))} className="text-red-400 hover:text-red-300 p-2"><Trash2 className="w-4 h-4" /></button>
+                     </div>
+                  </div>
+                ))}
+                {filteredExtras.length === 0 && <p className="text-sm text-gray-500 py-4 col-span-full text-center">No hay adicionales registrados.</p>}
+             </div>
+           </div>
+         )}
       </div>
+
+      <ExtraFormModal 
+        isOpen={showExtraModal}
+        onClose={() => setShowExtraModal(false)}
+        extra={editingExtra}
+        onSave={(data: any) => saveExtra.mutate(data)}
+      />
 
       <ProductFormModal 
         isOpen={showProductModal} 

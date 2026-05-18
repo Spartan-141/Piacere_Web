@@ -36,7 +36,11 @@ export default function CartDrawer() {
               <div key={item.id} className="bg-stone-800/50 rounded-xl p-3 flex gap-3">
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-white">{item.name}</p>
-                  {item.variantName && <p className="text-xs text-stone-500">{item.variantName}</p>}
+                  {item.extras && item.extras.length > 0 && (
+                    <p className="text-[10px] text-stone-400 mt-1 leading-tight">
+                      + {item.extras.map(e => e.name).join(', ')}
+                    </p>
+                  )}
                   <p className="text-brand-400 font-bold text-sm mt-1">${(item.unitPrice * item.quantity).toFixed(2)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">

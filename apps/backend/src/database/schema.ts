@@ -27,14 +27,6 @@ export function runMigrations(db: any): void {
       created_at      TEXT DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS product_variants (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      product_id  INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-      name        TEXT NOT NULL,
-      price_delta REAL DEFAULT 0,
-      is_active   INTEGER DEFAULT 1
-    );
-
     CREATE TABLE IF NOT EXISTS combos (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       name            TEXT NOT NULL,
@@ -50,8 +42,14 @@ export function runMigrations(db: any): void {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       combo_id    INTEGER NOT NULL REFERENCES combos(id) ON DELETE CASCADE,
       product_id  INTEGER NOT NULL REFERENCES products(id),
-      variant_id  INTEGER REFERENCES product_variants(id),
       quantity    INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS product_extras (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      name        TEXT NOT NULL,
+      price       REAL NOT NULL DEFAULT 0,
+      is_active   INTEGER DEFAULT 1
     );
 
     -- ============================================================
@@ -115,11 +113,17 @@ export function runMigrations(db: any): void {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
       product_id  INTEGER REFERENCES products(id),
-      variant_id  INTEGER REFERENCES product_variants(id),
       combo_id    INTEGER REFERENCES combos(id),
       quantity    INTEGER NOT NULL DEFAULT 1,
       unit_price  REAL NOT NULL,
       notes       TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS order_item_extras (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_item_id   INTEGER NOT NULL REFERENCES order_items(id) ON DELETE CASCADE,
+      product_extra_id INTEGER NOT NULL REFERENCES product_extras(id),
+      price           REAL NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS payments (

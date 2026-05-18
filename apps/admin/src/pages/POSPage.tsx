@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X } from 'lucide-react'
-import { Product, ProductVariant } from '@piacere/types'
+import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check } from 'lucide-react'
+import { Product, ProductExtra } from '@piacere/types'
 import api from '../services/api'
 import { useCartStore } from '../store/useCartStore'
 
@@ -132,6 +132,76 @@ function TableSelectModal({ onClose, onSelect }: { onClose: () => void; onSelect
   )
 }
 
+// ── Extras Selection Modal ──────────────────────────────────────
+function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: { 
+  product: Product; extras: ProductExtra[]; onClose: () => void; onConfirm: (extras: ProductExtra[]) => void 
+}) {
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+
+  const toggle = (extra: ProductExtra) => {
+    const next = new Set(selected)
+    if (next.has(extra.id)) next.delete(extra.id)
+    else next.add(extra.id)
+    setSelected(next)
+  }
+
+  const selectedExtras = extras.filter(e => selected.has(e.id))
+  const extrasTotal = selectedExtras.reduce((sum, e) => sum + e.price, 0)
+  const finalPrice = product.basePrice + extrasTotal
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="glass-panel w-full max-w-lg p-6 shadow-2xl flex flex-col max-h-[85vh]">
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-xl font-bold text-white">{product.name}</h3>
+            <p className="text-brand-400 font-semibold mt-1">Precio Base: ${product.basePrice.toFixed(2)}</p>
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1"><X className="w-5 h-5" /></button>
+        </div>
+        
+        <h4 className="text-sm font-medium text-gray-400 mb-3 border-b border-white/10 pb-2">Seleccionar Adicionales</h4>
+        
+        <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 gap-2 custom-scrollbar">
+          {extras.map(e => {
+            const isSelected = selected.has(e.id)
+            return (
+              <button
+                key={e.id}
+                onClick={() => toggle(e)}
+                className={`flex justify-between items-center p-3 rounded-lg border text-sm transition-all ${
+                  isSelected 
+                    ? 'bg-brand-500/20 border-brand-500 text-brand-300' 
+                    : 'bg-white/5 border-white/5 text-gray-300 hover:bg-white/10'
+                }`}
+              >
+                <span className="font-medium">{e.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs">+${e.price.toFixed(2)}</span>
+                  {isSelected && <Check className="w-4 h-4 text-brand-400" />}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        
+        <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center">
+           <div>
+             <p className="text-xs text-gray-400 mb-1">Total con adicionales</p>
+             <p className="text-xl font-bold text-white">${finalPrice.toFixed(2)}</p>
+           </div>
+           <button 
+             onClick={() => onConfirm(selectedExtras)}
+             className="btn-primary py-2 px-6 flex items-center gap-2 text-sm"
+           >
+             <Plus className="w-4 h-4" /> Añadir al Pedido
+           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Cart Panel ───────────────────────────────────────────────
 function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: { 
   onAssignTable: () => void; 
@@ -180,7 +250,11 @@ function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: {
             <div className="flex justify-between items-start gap-2">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white leading-tight">{item.name}</p>
-                {item.variantName && <p className="text-xs text-gray-500">{item.variantName}</p>}
+                {item.extras.length > 0 && (
+                  <p className="text-[10px] text-gray-400 leading-tight mt-1">
+                    + {item.extras.map(e => e.name).join(', ')}
+                  </p>
+                )}
               </div>
               <button onClick={() => removeItem(item.id)} className="text-gray-600 hover:text-red-400 flex-shrink-0">
                 <Trash2 className="w-3.5 h-3.5" />
@@ -249,11 +323,17 @@ export default function POSPage() {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [showPayment, setShowPayment] = useState(false)
   const [showTableSelect, setShowTableSelect] = useState(false)
+  const [extrasModalData, setExtrasModalData] = useState<Product | null>(null)
   const { addItem, items, total, tableId, setTable } = useCartStore()
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => api.get('/menu/categories').then(r => r.data),
+  })
+
+  const { data: extras = [] } = useQuery({
+    queryKey: ['extras-active'],
+    queryFn: () => api.get('/menu/extras').then(r => r.data),
   })
 
   const { data: products = [] } = useQuery({
@@ -273,9 +353,19 @@ export default function POSPage() {
   )
 
   const handleAddToCart = (product: Product) => {
-    // Añadir siempre la variante principal o nulo
-    const mainVariant = product.variants?.[0] ?? null
-    addItem(product, mainVariant)
+    const isPizza = categories.find((c: any) => c.id === product.categoryId)?.slug === 'pizzas'
+    if (isPizza && extras.length > 0) {
+      setExtrasModalData(product)
+    } else {
+      addItem(product, [])
+    }
+  }
+
+  const handleConfirmExtras = (selectedExtras: ProductExtra[]) => {
+    if (extrasModalData) {
+      addItem(extrasModalData, selectedExtras)
+      setExtrasModalData(null)
+    }
   }
 
   const handleSendOrder = async () => {
@@ -290,7 +380,7 @@ export default function POSPage() {
         discount,
         items: cartItems.map(i => ({
           productId: i.productId,
-          variantId: i.variantId || undefined,
+          extraIds: i.extras?.map((e: any) => e.id) || [],
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           notes: i.notes,
@@ -313,7 +403,7 @@ export default function POSPage() {
         discount,
         items: cartItems.map(i => ({
           productId: i.productId,
-          variantId: i.variantId || undefined,
+          extraIds: i.extras?.map((e: any) => e.id) || [],
           quantity: i.quantity,
           unitPrice: i.unitPrice,
           notes: i.notes,
@@ -379,7 +469,7 @@ export default function POSPage() {
 
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-brand-400 font-bold text-sm">
-                    ${(product.basePrice + (product.variants?.[0]?.priceDelta ?? 0)).toFixed(2)}
+                    ${product.basePrice.toFixed(2)}
                   </span>
                   <button
                     id={`add-product-${product.id}`}
@@ -424,6 +514,16 @@ export default function POSPage() {
             setTable(id)
             setShowTableSelect(false)
           }}
+        />
+      )}
+
+      {/* Extras Selection Modal */}
+      {extrasModalData && (
+        <ExtrasSelectionModal
+          product={extrasModalData}
+          extras={extras}
+          onClose={() => setExtrasModalData(null)}
+          onConfirm={handleConfirmExtras}
         />
       )}
     </div>

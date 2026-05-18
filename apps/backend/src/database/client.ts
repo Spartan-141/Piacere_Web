@@ -4,7 +4,7 @@ import { runMigrations } from './schema';
 
 dotenv.config();
 
-const DB_PATH = process.env.DB_PATH || './piacere.db';
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../piacere.db');
 
 let _db: any = null;
 

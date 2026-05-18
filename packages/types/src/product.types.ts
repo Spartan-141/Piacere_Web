@@ -10,11 +10,10 @@ export interface Category {
   sortOrder: number;
 }
 
-export interface ProductVariant {
+export interface ProductExtra {
   id: number;
-  productId: number;
-  name: string;       // "Personal", "Mediana", "Familiar"
-  priceDelta: number; // Diferencia respecto al precio base
+  name: string;
+  price: number;
   isActive: boolean;
 }
 
@@ -28,7 +27,7 @@ export interface Product {
   isActive: boolean;
   isOnWebMenu: boolean;
   imageUrl: string | null;
-  variants?: ProductVariant[];
+
   createdAt: string;
 }
 
@@ -37,8 +36,7 @@ export interface ComboItem {
   comboId: number;
   productId: number;
   productName?: string;
-  variantId: number | null;
-  variantName?: string | null;
+
   quantity: number;
 }
 

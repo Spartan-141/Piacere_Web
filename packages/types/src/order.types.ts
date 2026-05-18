@@ -12,8 +12,7 @@ export interface OrderItem {
   orderId: number;
   productId: number | null;
   productName?: string;
-  variantId: number | null;
-  variantName?: string | null;
+  extras?: { id: number; name: string; price: number }[];
   comboId: number | null;
   comboName?: string | null;
   quantity: number;
@@ -56,7 +55,7 @@ export interface Order {
 
 export interface CreateOrderItemInput {
   productId?: number;
-  variantId?: number;
+  extraIds?: number[];
   comboId?: number;
   quantity: number;
   unitPrice: number;

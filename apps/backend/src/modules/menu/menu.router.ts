@@ -65,16 +65,7 @@ menuRouter.get('/products', (req, res) => {
   const products = db.prepare(query).all(...params) as any[];
 
   // Adjuntar variantes y mapear a camelCase
-  const mapped = products.map((p) => {
-    const rawVariants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(p.id) as any[];
-    const variants = rawVariants.map(v => ({
-      id: v.id,
-      productId: v.product_id,
-      name: v.name,
-      priceDelta: v.price_delta,
-      isActive: v.is_active === 1
-    }));
-
+  const mapped = products.map(p => {
     return {
       id: p.id,
       categoryId: p.category_id,
@@ -84,9 +75,6 @@ menuRouter.get('/products', (req, res) => {
       basePrice: p.base_price,
       isActive: p.is_active === 1,
       isOnWebMenu: p.is_on_web_menu === 1,
-      imageUrl: p.image_url,
-      createdAt: p.created_at,
-      variants
     };
   });
 
@@ -103,15 +91,6 @@ menuRouter.get('/products/:id', (req, res) => {
 
   if (!p) return res.status(404).json({ error: 'Producto no encontrado' });
 
-  const rawVariants = db.prepare('SELECT * FROM product_variants WHERE product_id = ? AND is_active = 1').all(p.id) as any[];
-  const variants = rawVariants.map(v => ({
-    id: v.id,
-    productId: v.product_id,
-    name: v.name,
-    priceDelta: v.price_delta,
-    isActive: v.is_active === 1
-  }));
-
   return res.json({
     id: p.id,
     categoryId: p.category_id,
@@ -122,8 +101,7 @@ menuRouter.get('/products/:id', (req, res) => {
     isActive: p.is_active === 1,
     isOnWebMenu: p.is_on_web_menu === 1,
     imageUrl: p.image_url,
-    createdAt: p.created_at,
-    variants
+    createdAt: p.created_at
   });
 });
 
@@ -185,7 +163,6 @@ menuRouter.delete('/products/:id', authenticate, requireRole('admin'), (req, res
   const db = getDb();
   db.transaction(() => {
     db.prepare('DELETE FROM combo_items WHERE product_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM product_variants WHERE product_id = ?').run(req.params.id);
     db.prepare('DELETE FROM products WHERE id = ?').run(req.params.id);
   })();
   return res.json({ message: 'Producto eliminado físicamente' });
@@ -203,10 +180,9 @@ menuRouter.get('/combos', (req, res) => {
   const combos = db.prepare(query).all() as any[];
   const mapped = combos.map((combo) => {
     const rawItems = db.prepare(
-      `SELECT ci.*, p.name AS product_name, pv.name AS variant_name
+      `SELECT ci.*, p.name AS product_name
        FROM combo_items ci
        JOIN products p ON ci.product_id = p.id
-       LEFT JOIN product_variants pv ON ci.variant_id = pv.id
        WHERE ci.combo_id = ?`
     ).all(combo.id) as any[];
     
@@ -215,8 +191,6 @@ menuRouter.get('/combos', (req, res) => {
       comboId: i.combo_id,
       productId: i.product_id,
       productName: i.product_name,
-      variantId: i.variant_id,
-      variantName: i.variant_name,
       quantity: i.quantity
     }));
 
@@ -306,4 +280,52 @@ menuRouter.delete('/combos/:id', authenticate, requireRole('admin'), (req, res) 
     db.prepare('DELETE FROM combos WHERE id=?').run(comboId);
   })();
   return res.json({ message: 'Combo eliminado' });
+});
+
+// ── Extras ───────────────────────────────────────────────────
+menuRouter.get('/extras', (req, res) => {
+  const db = getDb();
+  const showAll = req.query.all === 'true';
+  let query = 'SELECT * FROM product_extras';
+  if (!showAll) query += ' WHERE is_active = 1';
+  const extras = db.prepare(query).all() as any[];
+  
+  const mapped = extras.map(e => ({
+    id: e.id,
+    name: e.name,
+    price: e.price,
+    isActive: e.is_active === 1
+  }));
+  return res.json(mapped);
+});
+
+const extraSchema = z.object({
+  name: z.string().min(2),
+  price: z.number().nonnegative(),
+});
+
+menuRouter.post('/extras', authenticate, requireRole('admin'), validate(extraSchema), (req, res) => {
+  const db = getDb();
+  const { name, price } = req.body;
+  const result = db.prepare('INSERT INTO product_extras (name, price) VALUES (?, ?)').run(name, price);
+  return res.status(201).json({ id: result.lastInsertRowid, ...req.body, isActive: true });
+});
+
+menuRouter.put('/extras/:id', authenticate, requireRole('admin'), (req, res) => {
+  const db = getDb();
+  const { name, price, isActive } = req.body;
+  const id = req.params.id;
+  try {
+    db.prepare('UPDATE product_extras SET name=?, price=?, is_active=? WHERE id=?')
+      .run(name, price, (isActive === true || isActive === 1) ? 1 : 0, id);
+    return res.json({ message: 'Extra actualizado' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error al actualizar extra' });
+  }
+});
+
+menuRouter.delete('/extras/:id', authenticate, requireRole('admin'), (req, res) => {
+  const db = getDb();
+  db.prepare('DELETE FROM product_extras WHERE id=?').run(req.params.id);
+  return res.json({ message: 'Extra eliminado' });
 });

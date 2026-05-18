@@ -25,7 +25,7 @@ const createOrderSchema = z.object({
   discount: z.number().min(0).optional().default(0),
   items: z.array(z.object({
     productId: z.number().optional(),
-    variantId: z.number().optional(),
+    extraIds: z.array(z.number()).optional(),
     comboId: z.number().optional(),
     quantity: z.number().int().positive(),
     unitPrice: z.number().positive(),
@@ -69,14 +69,23 @@ ordersRouter.get('/:id', authenticate, (req, res) => {
 
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
 
-  const items = db.prepare(`
-    SELECT oi.*, p.name AS product_name, pv.name AS variant_name, c.name AS combo_name
+  const rawItems = db.prepare(`
+    SELECT oi.*, p.name AS product_name, c.name AS combo_name
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.id
-    LEFT JOIN product_variants pv ON oi.variant_id = pv.id
     LEFT JOIN combos c ON oi.combo_id = c.id
     WHERE oi.order_id = ?
-  `).all(order.id);
+  `).all(order.id) as any[];
+
+  const items = rawItems.map((oi) => {
+    const extras = db.prepare(`
+      SELECT e.id, e.name, oie.price
+      FROM order_item_extras oie
+      JOIN product_extras e ON oie.product_extra_id = e.id
+      WHERE oie.order_item_id = ?
+    `).all(oi.id);
+    return { ...oi, extras };
+  });
 
   const payments = db.prepare('SELECT * FROM payments WHERE order_id = ?').all(order.id);
 
@@ -105,11 +114,25 @@ ordersRouter.post('/', authenticate, validate(createOrderSchema), (req, res) => 
     const orderId = orderResult.lastInsertRowid;
 
     for (const item of items) {
-      db.prepare(`
-        INSERT INTO order_items (order_id, product_id, variant_id, combo_id, quantity, unit_price, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(orderId, item.productId || null, item.variantId || null, item.comboId || null,
+      const oiResult = db.prepare(`
+        INSERT INTO order_items (order_id, product_id, combo_id, quantity, unit_price, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(orderId, item.productId || null, item.comboId || null,
              item.quantity, item.unitPrice, item.notes || null);
+             
+      const orderItemId = oiResult.lastInsertRowid;
+      
+      if (item.extraIds && item.extraIds.length > 0) {
+        for (const extraId of item.extraIds) {
+          const extra = db.prepare('SELECT price FROM product_extras WHERE id = ?').get(extraId) as any;
+          if (extra) {
+            db.prepare(`
+              INSERT INTO order_item_extras (order_item_id, product_extra_id, price)
+              VALUES (?, ?, ?)
+            `).run(orderItemId, extraId, extra.price);
+          }
+        }
+      }
     }
 
     // Actualizar estado de mesa

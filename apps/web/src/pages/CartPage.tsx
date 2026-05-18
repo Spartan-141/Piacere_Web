@@ -28,7 +28,11 @@ export default function CartPage() {
               <div className="w-14 h-14 bg-stone-800 rounded-xl flex items-center justify-center text-2xl">🍕</div>
               <div className="flex-1">
                 <p className="font-semibold text-white">{item.name}</p>
-                {item.variantName && <p className="text-stone-500 text-sm">{item.variantName}</p>}
+                {item.extras && item.extras.length > 0 && (
+                  <p className="text-[10px] text-stone-500 mt-1 leading-tight">
+                    + {item.extras.map(e => e.name).join(', ')}
+                  </p>
+                )}
                 <div className="flex items-center gap-3 mt-2">
                   <div className="flex items-center gap-2">
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 bg-stone-800 hover:bg-stone-700 rounded-full flex items-center justify-center transition-colors">

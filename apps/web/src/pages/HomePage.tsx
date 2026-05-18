@@ -9,7 +9,6 @@ const api = axios.create({ baseURL: '/api' })
 
 function ProductCard({ product }: { product: Product }) {
   const { addItem } = useWebCartStore()
-  const mainVariant = product.variants?.[1] ?? product.variants?.[0] ?? null // Mediana por defecto
 
   return (
     <div className="product-card group">
@@ -27,13 +26,12 @@ function ProductCard({ product }: { product: Product }) {
         )}
         <div className="flex items-center justify-between mt-4">
           <div>
-            <span className="text-xs text-stone-600">Desde</span>
             <p className="text-brand-400 font-bold text-lg">
-              ${(product.basePrice + (product.variants?.[0]?.priceDelta ?? 0)).toFixed(2)}
+              ${product.basePrice.toFixed(2)}
             </p>
           </div>
           <button
-            onClick={() => addItem(product, mainVariant)}
+            onClick={() => addItem(product, [])}
             className="w-9 h-9 bg-brand-500 hover:bg-brand-600 rounded-full flex items-center justify-center transition-all hover:scale-110 shadow-lg shadow-brand-500/30"
           >
             <Plus className="w-4 h-4 text-white" />
