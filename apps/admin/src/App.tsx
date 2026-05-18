@@ -5,7 +5,6 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import POSPage from './pages/POSPage'
 import TablesPage from './pages/TablesPage'
-import InventoryPage from './pages/InventoryPage'
 import MenuCMSPage from './pages/MenuCMSPage'
 import CustomersPage from './pages/CustomersPage'
 import OrdersPage from './pages/OrdersPage'
@@ -33,7 +32,6 @@ export default function App() {
         <Route path="pos" element={<POSPage />} />
         <Route path="tables" element={<TablesPage />} />
         <Route path="orders" element={<OrdersPage />} />
-        <Route path="inventory" element={<InventoryPage />} />
         <Route path="menu-cms" element={<MenuCMSPage />} />
         <Route path="customers" element={<CustomersPage />} />
       </Route>

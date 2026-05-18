@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { authRouter } from './modules/auth/auth.router';
 import { menuRouter } from './modules/menu/menu.router';
 import { ordersRouter } from './modules/orders/orders.router';
-import { inventoryRouter } from './modules/inventory/inventory.router';
+
 import { tablesRouter } from './modules/tables/tables.router';
 import { customersRouter } from './modules/customers/customers.router';
 
@@ -34,7 +34,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/menu', menuRouter);
 app.use('/api/orders', ordersRouter);
-app.use('/api/inventory', inventoryRouter);
+
 app.use('/api/tables', tablesRouter);
 app.use('/api/customers', customersRouter);
 

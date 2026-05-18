@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, ShoppingCart, Grid2X2, Package,
+  LayoutDashboard, ShoppingCart, Grid2X2,
   Monitor, Users, LogOut, Pizza, Clock
 } from 'lucide-react'
 import { useAuthStore } from '../store/useAuthStore'
@@ -10,7 +10,6 @@ const navItems = [
   { to: '/pos',       icon: ShoppingCart,   label: 'POS' },
   { to: '/tables',    icon: Grid2X2,        label: 'Mesas' },
   { to: '/orders',    icon: Clock,          label: 'Órdenes' },
-  { to: '/inventory', icon: Package,        label: 'Inventario' },
   { to: '/menu-cms',  icon: Monitor,        label: 'Menú Web' },
   { to: '/customers', icon: Users,          label: 'Clientes' },
 ]

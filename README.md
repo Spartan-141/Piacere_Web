@@ -87,13 +87,7 @@ Esto iniciará los siguientes servicios:
   - 🟡 **Amarillo**: Mesa Reservada.
 - Acceso directo al POS desde la mesa.
 
-### 3. Inventario y Escandallo
-
-- Descuento automático de materia prima (harina, queso, etc.) al completar pedidos de cocina.
-- Alertas de stock bajo en tiempo real.
-- Historial de movimientos de inventario.
-
-### 4. CMS y E-commerce
+### 3. CMS y E-commerce
 
 - Control de visibilidad de productos en la web desde el panel admin.
 - Landing page moderna con carrito interactivo para clientes.

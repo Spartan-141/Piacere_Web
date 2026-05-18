@@ -10,10 +10,9 @@ async function seed() {
   // Limpiar datos previos
   db.exec(`
     DELETE FROM payments; DELETE FROM order_items; DELETE FROM orders;
-    DELETE FROM inventory_movements; DELETE FROM recipe_ingredients; DELETE FROM recipes;
     DELETE FROM combo_items; DELETE FROM combos;
     DELETE FROM product_variants; DELETE FROM products;
-    DELETE FROM raw_materials; DELETE FROM customer_addresses;
+    DELETE FROM customer_addresses;
     DELETE FROM users; DELETE FROM tables; DELETE FROM table_sections; DELETE FROM categories;
   `);
 
@@ -75,35 +74,6 @@ async function seed() {
   insertComboItem.run(c2.lastInsertRowid, p8.lastInsertRowid, 1);
   insertComboItem.run(c2.lastInsertRowid, p9.lastInsertRowid, 4);
 
-  // --- Materias Primas ---
-  const insertMaterial = db.prepare(
-    `INSERT INTO raw_materials (name, unit, stock_quantity, min_stock_alert, cost_per_unit) VALUES (?, ?, ?, ?, ?)`
-  );
-  const rm1 = insertMaterial.run('Harina de trigo 00', 'kg', 50, 10, 1.20);
-  const rm2 = insertMaterial.run('Mozzarella fresca', 'kg', 20, 5, 8.00);
-  const rm3 = insertMaterial.run('Salsa de tomate', 'litro', 30, 5, 2.50);
-  const rm4 = insertMaterial.run('Pepperoni artesanal', 'kg', 10, 2, 12.00);
-  const rm5 = insertMaterial.run('Albahaca fresca', 'gramo', 1000, 200, 0.02);
-
-  // --- Recetas (Escandallo) ---
-  const insertRecipe = db.prepare(`INSERT INTO recipes (product_id) VALUES (?)`);
-  const insertIngredient = db.prepare(
-    `INSERT INTO recipe_ingredients (recipe_id, raw_material_id, quantity) VALUES (?, ?, ?)`
-  );
-
-  // Receta Margherita (por pizza mediana)
-  const r1 = insertRecipe.run(p1.lastInsertRowid);
-  insertIngredient.run(r1.lastInsertRowid, rm1.lastInsertRowid, 0.350); // 350g harina
-  insertIngredient.run(r1.lastInsertRowid, rm2.lastInsertRowid, 0.200); // 200g mozzarella
-  insertIngredient.run(r1.lastInsertRowid, rm3.lastInsertRowid, 0.120); // 120ml salsa
-  insertIngredient.run(r1.lastInsertRowid, rm5.lastInsertRowid, 5);     // 5g albahaca
-
-  // Receta Pepperoni
-  const r2 = insertRecipe.run(p2.lastInsertRowid);
-  insertIngredient.run(r2.lastInsertRowid, rm1.lastInsertRowid, 0.350);
-  insertIngredient.run(r2.lastInsertRowid, rm2.lastInsertRowid, 0.200);
-  insertIngredient.run(r2.lastInsertRowid, rm3.lastInsertRowid, 0.120);
-  insertIngredient.run(r2.lastInsertRowid, rm4.lastInsertRowid, 0.080); // 80g pepperoni
 
   // --- Mesas y Secciones ---
   const insertSection = db.prepare(`INSERT INTO table_sections (name, prefix) VALUES (?, ?)`);

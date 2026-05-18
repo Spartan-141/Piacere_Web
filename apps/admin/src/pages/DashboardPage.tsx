@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { ShoppingBag, DollarSign, Grid2X2, AlertTriangle } from 'lucide-react'
+import { ShoppingBag, DollarSign, Grid2X2 } from 'lucide-react'
 import api from '../services/api'
 
 function StatCard({ icon: Icon, label, value, color }: {
@@ -24,10 +24,6 @@ export default function DashboardPage() {
     queryFn: () => api.get(`/orders?date=${today}`).then(r => r.data),
   })
 
-  const { data: alerts = [] } = useQuery({
-    queryKey: ['inventory-alerts'],
-    queryFn: () => api.get('/inventory/alerts').then(r => r.data),
-  })
 
   const { data: tables = [] } = useQuery({
     queryKey: ['tables'],
@@ -56,7 +52,6 @@ export default function DashboardPage() {
         <StatCard icon={DollarSign}    label="Ingresos hoy" value={`$${todayRevenue.toFixed(2)}`} color="bg-emerald-500/20 text-emerald-400" />
         <StatCard icon={ShoppingBag}   label="Pedidos activos" value={activeOrders.length}          color="bg-brand-500/20 text-brand-400" />
         <StatCard icon={Grid2X2}       label="Mesas ocupadas" value={`${occupiedTables}/${tables.length}`} color="bg-amber-500/20 text-amber-400" />
-        <StatCard icon={AlertTriangle} label="Alertas de stock" value={alerts.length}               color="bg-red-500/20 text-red-400" />
       </div>
 
       {/* Active Orders */}
@@ -84,22 +79,6 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Low Stock Alerts */}
-      {alerts.length > 0 && (
-        <div className="card border border-red-500/20">
-          <h2 className="text-sm font-semibold text-red-400 mb-4 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4" /> Stock Bajo
-          </h2>
-          <div className="space-y-2">
-            {alerts.map((m: any) => (
-              <div key={m.id} className="flex justify-between text-sm px-3 py-2 bg-red-500/5 rounded-lg">
-                <span className="text-gray-300">{m.name}</span>
-                <span className="text-red-400 font-medium">{m.stock_quantity} {m.unit}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

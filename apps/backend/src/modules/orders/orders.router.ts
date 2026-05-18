@@ -14,33 +14,6 @@ function generateOrderNumber(): string {
   return `ORD-${year}-${rand}`;
 }
 
-// Descontar inventario automáticamente (Escandallo)
-function deductInventoryForOrder(db: ReturnType<typeof getDb>, orderId: number) {
-  const items = db.prepare(
-    'SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ? AND combo_id IS NULL'
-  ).all(orderId) as any[];
-
-  for (const item of items) {
-    const recipe = db.prepare(
-      'SELECT id FROM recipes WHERE product_id = ? AND (variant_id = ? OR variant_id IS NULL) LIMIT 1'
-    ).get(item.product_id, item.variant_id) as any;
-
-    if (!recipe) continue;
-
-    const ingredients = db.prepare(
-      'SELECT raw_material_id, quantity FROM recipe_ingredients WHERE recipe_id = ?'
-    ).all(recipe.id) as any[];
-
-    for (const ing of ingredients) {
-      const totalDeducted = ing.quantity * item.quantity;
-      db.prepare('UPDATE raw_materials SET stock_quantity = stock_quantity - ?, updated_at = datetime(\'now\') WHERE id = ?')
-        .run(totalDeducted, ing.raw_material_id);
-      db.prepare(
-        'INSERT INTO inventory_movements (raw_material_id, type, quantity_delta, notes, created_by) VALUES (?, \'sale_deduction\', ?, ?, ?)'
-      ).run(ing.raw_material_id, -totalDeducted, `Pedido ${orderId}`, null);
-    }
-  }
-}
 
 const createOrderSchema = z.object({
   type: z.enum(['dine_in', 'takeaway', 'delivery', 'phone']),
@@ -166,11 +139,6 @@ ordersRouter.patch('/:id/status', authenticate, (req, res) => {
   const updateAndDeduct = db.transaction(() => {
     db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?")
       .run(status, req.params.id);
-
-    // Descontar inventario al confirmar preparación
-    if (status === 'preparing' && order.status === 'confirmed') {
-      deductInventoryForOrder(db, Number(req.params.id));
-    }
 
     // Liberar mesa al cerrar pedido
     if ((status === 'delivered' || status === 'cancelled') && order.table_id) {
