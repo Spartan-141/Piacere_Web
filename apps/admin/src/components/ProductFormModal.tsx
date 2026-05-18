@@ -15,7 +15,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
     description: '',
     basePrice: '',
     categoryId: '',
-    isOnWebMenu: true
+    isOnWebMenu: true,
+    imageUrl: ''
   });
 
   useEffect(() => {
@@ -26,7 +27,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
           description: product.description || '',
           basePrice: product.basePrice.toString(),
           categoryId: product.categoryId?.toString() || (categories[0]?.id.toString() || ''),
-          isOnWebMenu: product.isOnWebMenu === true
+          isOnWebMenu: product.isOnWebMenu === true,
+          imageUrl: product.imageUrl || ''
         });
       } else {
         setFormData({
@@ -34,7 +36,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
           description: '',
           basePrice: '',
           categoryId: categories[0]?.id.toString() || '',
-          isOnWebMenu: true
+          isOnWebMenu: true,
+          imageUrl: ''
         });
       }
     }
@@ -51,7 +54,8 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
       basePrice: parseFloat(formData.basePrice) || 0,
       categoryId: parseInt(formData.categoryId, 10),
       isOnWebMenu: formData.isOnWebMenu,
-      isActive: product ? product.isActive : true
+      isActive: product ? product.isActive : true,
+      imageUrl: formData.imageUrl
     });
   };
 
@@ -88,6 +92,10 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
                 {categories.map(c => <option key={c.id} value={c.id} className="bg-gray-900">{c.name}</option>)}
               </select>
             </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-400 mb-1">URL de la Imagen</label>
+            <input type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="input-field w-full text-sm" placeholder="https://ejemplo.com/imagen.jpg (Opcional)" />
           </div>
           <div className="flex items-center gap-2 mt-4 p-3 rounded-lg border border-white/5 bg-white/5">
             <input type="checkbox" id="webMenu" checked={formData.isOnWebMenu} onChange={e => setFormData({...formData, isOnWebMenu: e.target.checked})} className="accent-brand-500 w-4 h-4 cursor-pointer" />

@@ -147,13 +147,13 @@ menuRouter.post('/products', authenticate, requireRole('admin'), validate(produc
 
 menuRouter.put('/products/:id', authenticate, requireRole('admin', 'cashier'), (req, res) => {
   const db = getDb();
-  const { name, description, basePrice, isActive, isOnWebMenu, categoryId } = req.body;
+  const { name, description, basePrice, isActive, isOnWebMenu, categoryId, imageUrl } = req.body;
   const id = req.params.id;
 
   try {
     const result = db.prepare(
       `UPDATE products 
-       SET name = ?, description = ?, base_price = ?, is_active = ?, is_on_web_menu = ?, category_id = ?
+       SET name = ?, description = ?, base_price = ?, is_active = ?, is_on_web_menu = ?, category_id = ?, image_url = ?
        WHERE id = ?`
     ).run(
       name, 
@@ -162,6 +162,7 @@ menuRouter.put('/products/:id', authenticate, requireRole('admin', 'cashier'), (
       (isActive === true || isActive === 1) ? 1 : 0, 
       (isOnWebMenu === true || isOnWebMenu === 1) ? 1 : 0, 
       categoryId, 
+      imageUrl || null,
       id
     );
     return res.json({ message: 'Producto actualizado' });

@@ -72,10 +72,14 @@ export default function MenuPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {filtered.map(product => (
           <div key={product.id} className="product-card group">
-            <div className="h-36 bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center text-4xl">
-              {(product as any).category_name === 'Pizzas' ? '🍕' :
-               (product as any).category_name === 'Pastas' ? '🍝' :
-               (product as any).category_name === 'Bebidas' ? '🥤' : '🍽️'}
+            <div className="h-36 bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center text-4xl overflow-hidden">
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              ) : (
+                (product as any).category_name === 'Pizzas' ? '🍕' :
+                (product as any).category_name === 'Pastas' ? '🍝' :
+                (product as any).category_name === 'Bebidas' ? '🥤' : '🍽️'
+              )}
             </div>
             <div className="p-4">
               <p className="text-xs text-brand-500 font-medium mb-1">{(product as any).category_name}</p>

@@ -13,8 +13,12 @@ function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="product-card group">
-      <div className="h-40 bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center text-5xl">
-        🍕
+      <div className="h-40 bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center text-5xl overflow-hidden">
+        {product.imageUrl ? (
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        ) : (
+          "🍕"
+        )}
       </div>
       <div className="p-4">
         <h3 className="font-semibold text-white group-hover:text-brand-300 transition-colors">{product.name}</h3>
