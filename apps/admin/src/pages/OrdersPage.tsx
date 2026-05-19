@@ -491,11 +491,15 @@ export default function OrdersPage() {
     })
   }
 
-  // Time elapsed helper
+  // Time elapsed helper — handle UTC timestamps from SQLite (may lack 'Z')
   const getTimeElapsed = (isoDate: string) => {
-    const diff = Math.floor((new Date().getTime() - new Date(isoDate).getTime()) / 60000)
-    if (diff < 60) return `Hace ${diff} min`
-    return `Hace ${Math.floor(diff/60)} h ${diff%60} m`
+    const raw = isoDate.endsWith('Z') ? isoDate : isoDate + 'Z'
+    const diff = Math.floor((Date.now() - new Date(raw).getTime()) / 60000)
+    const d = Math.max(0, diff)
+    if (d < 1)   return 'Ahora mismo'
+    if (d < 60)  return `Hace ${d} min`
+    if (d < 1440) return `Hace ${Math.floor(d/60)} h ${d%60} min`
+    return `Hace ${Math.floor(d/1440)} d`
   }
 
   if (isLoading) return <div className="p-6 text-gray-500">Cargando comandas...</div>
@@ -505,111 +509,181 @@ export default function OrdersPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-white">Gestión de Órdenes</h1>
-          <p className="text-gray-500 text-sm mt-1">Controla las mesas activas, añade ítems y procesa pagos.</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-white">Gestión de Órdenes</h1>
+            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${
+              tab === 'open'
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+            }`}>
+              {orders.length} activa{orders.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <p className="text-gray-600 text-sm mt-0.5">Auto-actualización cada 15 s</p>
         </div>
         
-        <div className="flex gap-2 bg-black/40 p-1.5 rounded-xl border border-white/5">
+        <div className="flex gap-1.5 bg-black/50 p-1.5 rounded-2xl border border-white/8 backdrop-blur-sm">
            <button 
              onClick={() => setTab('open')} 
-             className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all ${tab === 'open' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-gray-400 hover:text-white'}`}
+             className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all ${
+               tab === 'open'
+                 ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
+                 : 'text-gray-500 hover:text-gray-300'
+             }`}
            >
-             Abiertas / Sin Pagar
+             Abiertas
            </button>
            <button 
              onClick={() => setTab('paid')} 
-             className={`px-6 py-2 text-sm font-semibold rounded-lg transition-all ${tab === 'paid' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-gray-400 hover:text-white'}`}
+             className={`px-5 py-2 text-sm font-semibold rounded-xl transition-all ${
+               tab === 'paid'
+                 ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                 : 'text-gray-500 hover:text-gray-300'
+             }`}
            >
              Pagadas
            </button>
         </div>
       </div>
 
+
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {orders.length === 0 && (
-            <div className="col-span-full py-20 flex flex-col items-center justify-center text-gray-500 bg-black/20 rounded-2xl border border-dashed border-white/10">
-              <UtensilsCrossed className="w-12 h-12 mb-3 opacity-20" />
-              <p className="text-lg font-medium">No hay órdenes en esta sección</p>
+            <div className="col-span-full py-24 flex flex-col items-center justify-center gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-white/3 border border-white/5 flex items-center justify-center">
+                <UtensilsCrossed className="w-9 h-9 text-gray-600" />
+              </div>
+              <div className="text-center">
+                <p className="text-gray-400 font-semibold">Sin órdenes {tab === 'open' ? 'abiertas' : 'pagadas'}</p>
+                <p className="text-gray-600 text-sm mt-1">Las nuevas órdenes aparecerán aquí automáticamente</p>
+              </div>
             </div>
           )}
           
-          {orders.map((order: any) => (
-            <div key={order.id} className={`glass-panel p-5 flex flex-col gap-4 border-t-4 ${tab === 'open' ? 'border-t-amber-500' : 'border-t-emerald-500'}`}>
-              {/* Card Header */}
-              <div className="flex justify-between items-start">
-                 <div>
-                   <button
-                     onClick={() => setDetailModal(order.id)}
-                     className="absolute top-3 right-3 text-gray-600 hover:text-brand-400 transition-colors"
-                     title="Ver detalles"
-                   >
-                     <Eye className="w-4 h-4" />
-                   </button>
-                 </div>
-                 <div>
-                   <h2 className="text-lg font-bold text-white leading-none mb-1">{order.order_number}</h2>
-                   <p className="text-xs text-gray-400 flex items-center gap-1 font-medium"><Clock className="w-3 h-3"/> {getTimeElapsed(order.created_at)}</p>
-                 </div>
-                 <div className="text-right">
-                   <p className="text-xl font-bold text-brand-400">${order.total.toFixed(2)}</p>
-                   {order.total_paid > 0 && order.total_paid < order.total && (
-                     <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider">Abonado: ${order.total_paid.toFixed(2)}</p>
-                   )}
-                 </div>
-              </div>
+          {orders.map((order: any) => {
+            const pending = Math.max(0, (order.total || 0) - (order.total_paid || 0))
+            const isFullyPaid = pending === 0
+            return (
+              <div
+                key={order.id}
+                className={`relative flex flex-col rounded-2xl border overflow-hidden transition-all hover:shadow-xl hover:-translate-y-0.5 ${
+                  tab === 'open'
+                    ? 'bg-gradient-to-b from-amber-950/30 to-black/60 border-amber-500/20 hover:border-amber-500/40 hover:shadow-amber-950/50'
+                    : 'bg-gradient-to-b from-emerald-950/30 to-black/60 border-emerald-500/20 hover:border-emerald-500/40 hover:shadow-emerald-950/50'
+                }`}
+              >
+                {/* Accent stripe */}
+                <div className={`h-1 w-full ${
+                  tab === 'open' ? 'bg-gradient-to-r from-amber-500 to-orange-400' : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                }`} />
 
-              {/* Order Info */}
-              <div className="bg-black/30 rounded-xl p-3 text-sm border border-white/5 space-y-2">
-                <div className="flex justify-between items-center">
-                   <span className="text-gray-400 text-xs">Mesa</span>
-                   <div className="flex items-center gap-2">
-                     <span className="text-white font-semibold">{order.table_name || 'Sin asignar'}</span>
-                     {tab === 'open' && (
-                       <button onClick={() => setTableModal({ isOpen: true, orderId: order.id })} className="text-[10px] text-brand-400 hover:underline">Cambiar</button>
-                     )}
-                   </div>
-                </div>
-                <div className="flex justify-between">
-                   <span className="text-gray-400 text-xs">Tipo</span>
-                   <span className="text-gray-300 font-medium capitalize">{order.type.replace('_',' ')}</span>
-                </div>
-              </div>
+                <div className="p-4 flex flex-col gap-3 flex-1">
+                  {/* Card Header */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-[11px] text-gray-500 font-medium tracking-wider truncate">{order.order_number}</p>
+                      <p className={`text-2xl font-bold mt-0.5 ${
+                        tab === 'open' ? 'text-amber-400' : 'text-emerald-400'
+                      }`}>${(order.total || 0).toFixed(2)}</p>
+                      {order.total_paid > 0 && order.total_paid < order.total && (
+                        <p className="text-[10px] text-orange-400 font-semibold mt-0.5">
+                          Abonado: ${(order.total_paid).toFixed(2)} · Falta: ${pending.toFixed(2)}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setDetailModal(order.id)}
+                      title="Ver detalles"
+                      className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-brand-500/20 border border-white/8 hover:border-brand-500/40 flex items-center justify-center text-gray-500 hover:text-brand-400 transition-all"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
 
-              {/* Actions */}
-              <div className="mt-auto grid grid-cols-2 gap-2 pt-2">
-                {tab === 'open' ? (
-                  <>
-                    <button onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })} className="btn-secondary py-2 text-xs">
-                       Añadir Ítems
-                    </button>
-                    <button onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })} className="btn-primary bg-emerald-600 hover:bg-emerald-700 py-2 text-xs shadow-lg shadow-emerald-900/20">
-                       Pagar Orden
-                    </button>
-                    <button onClick={() => handleFinalize(order)} className="col-span-2 btn-secondary py-2 text-xs border-dashed text-gray-400 hover:text-white">
-                       Orden Finalizada
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {order.total_paid < order.total ? (
-                      <button onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })} className="col-span-2 btn-primary bg-amber-600 hover:bg-amber-700 py-2 text-xs shadow-lg shadow-amber-900/20">
-                         Cobrar Diferencia (${(order.total - order.total_paid).toFixed(2)})
-                      </button>
+                  {/* Info pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-300">
+                      <span className="text-gray-500">Mesa:</span>
+                      {order.table_name
+                        ? <span className="font-semibold text-white">{order.table_name}</span>
+                        : <span className="text-gray-500 italic">Sin asignar</span>
+                      }
+                    </span>
+                    <span className="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-400 capitalize">
+                      {order.type?.replace('_', ' ')}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-500">
+                      <Clock className="w-3 h-3" />
+                      {getTimeElapsed(order.created_at)}
+                    </span>
+                  </div>
+
+                  {/* Divider */}
+                  <div className="border-t border-white/5" />
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2 mt-auto">
+                    {tab === 'open' ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
+                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                          >
+                            + Añadir Ítems
+                          </button>
+                          <button
+                            onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
+                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                          >
+                            Cambiar Mesa
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
+                          className="w-full py-2.5 text-xs font-bold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 transition-all"
+                        >
+                          💳 Cobrar Orden
+                        </button>
+                        <button
+                          onClick={() => handleFinalize(order)}
+                          className="w-full py-2 text-xs font-medium rounded-lg border border-dashed border-white/10 hover:border-white/25 text-gray-600 hover:text-gray-400 transition-all"
+                        >
+                          Orden Finalizada (sin cobrar)
+                        </button>
+                      </>
                     ) : (
-                      <button onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })} className="col-span-2 btn-secondary py-2 text-xs border-dashed text-brand-400 hover:bg-brand-500/10">
-                         + Añadir a orden pagada
-                      </button>
+                      <>
+                        {!isFullyPaid ? (
+                          <button
+                            onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
+                            className="w-full py-2.5 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 transition-all"
+                          >
+                            ⚠️ Cobrar Diferencia — ${pending.toFixed(2)}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
+                            className="w-full py-2 text-xs font-semibold rounded-lg border border-dashed border-brand-500/30 hover:bg-brand-500/10 text-brand-400 transition-all"
+                          >
+                            + Añadir más ítems
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleFinalize(order)}
+                          className="w-full py-2.5 text-xs font-bold rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 hover:border-brand-500/60 text-brand-400 transition-all"
+                        >
+                          ✓ Cerrar Mesa
+                        </button>
+                      </>
                     )}
-                    <button onClick={() => handleFinalize(order)} className="col-span-2 btn-primary py-2 text-xs shadow-lg shadow-brand-900/20 mt-1">
-                       Cerrar Mesa (Finalizar)
-                    </button>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
