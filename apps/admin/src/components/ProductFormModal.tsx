@@ -96,6 +96,37 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1">URL de la Imagen</label>
             <input type="text" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="input-field w-full text-sm" placeholder="URL o ruta local de la imagen (Opcional)" />
+            
+            {/* Live Image Preview Container */}
+            <div className="mt-3 relative rounded-xl overflow-hidden border border-white/10 bg-black/30 aspect-video max-h-36 flex items-center justify-center group transition-all duration-300 hover:border-white/20">
+              {formData.imageUrl ? (
+                <>
+                  <img 
+                    src={formData.imageUrl} 
+                    alt="Vista previa del producto" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const parent = e.currentTarget.parentElement;
+                      if (parent) {
+                        const fallback = parent.querySelector('.fallback-preview');
+                        if (fallback) fallback.classList.remove('hidden');
+                      }
+                    }}
+                  />
+                  <div className="fallback-preview hidden absolute inset-0 flex flex-col items-center justify-center p-3 text-center bg-gray-950/80">
+                    <span className="text-2xl mb-1">⚠️</span>
+                    <p className="text-xs font-semibold text-gray-300">Ruta no cargable en panel</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Se guardará correctamente para el catálogo web</p>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 p-4 text-center text-gray-600">
+                  <span className="text-2xl opacity-60">🍕</span>
+                  <span className="text-xs font-medium">Sin imagen (se usará el emoji de categoría)</span>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2 mt-4 p-3 rounded-lg border border-white/5 bg-white/5">
             <input type="checkbox" id="webMenu" checked={formData.isOnWebMenu} onChange={e => setFormData({...formData, isOnWebMenu: e.target.checked})} className="accent-brand-500 w-4 h-4 cursor-pointer" />
