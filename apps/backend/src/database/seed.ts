@@ -21,6 +21,7 @@ async function seed() {
     DELETE FROM tables; 
     DELETE FROM table_sections; 
     DELETE FROM categories;
+    DELETE FROM sqlite_sequence;
   `);
   db.exec('PRAGMA foreign_keys = ON;');
 
