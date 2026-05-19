@@ -95,7 +95,7 @@ const ProductFormModal: React.FC<ProductFormModalProps> = ({ isOpen, onClose, pr
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-400 mb-1">URL de la Imagen</label>
-            <input type="url" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="input-field w-full text-sm" placeholder="https://ejemplo.com/imagen.jpg (Opcional)" />
+            <input type="text" value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})} className="input-field w-full text-sm" placeholder="URL o ruta local de la imagen (Opcional)" />
           </div>
           <div className="flex items-center gap-2 mt-4 p-3 rounded-lg border border-white/5 bg-white/5">
             <input type="checkbox" id="webMenu" checked={formData.isOnWebMenu} onChange={e => setFormData({...formData, isOnWebMenu: e.target.checked})} className="accent-brand-500 w-4 h-4 cursor-pointer" />

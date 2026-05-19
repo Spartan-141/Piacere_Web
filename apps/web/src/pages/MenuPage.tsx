@@ -29,7 +29,7 @@ export default function MenuPage() {
   })
 
   const filtered = products.filter(p => {
-    const matchCat = selCat ? (p as any).category_id === selCat : true
+    const matchCat = selCat ? (p as any).categoryId === selCat : true
     const matchSearch = p.name.toLowerCase().includes(search.toLowerCase())
     return matchCat && matchSearch
   })

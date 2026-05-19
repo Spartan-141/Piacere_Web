@@ -75,6 +75,7 @@ menuRouter.get('/products', (req, res) => {
       basePrice: p.base_price,
       isActive: p.is_active === 1,
       isOnWebMenu: p.is_on_web_menu === 1,
+      imageUrl: p.image_url,
     };
   });
 
@@ -111,7 +112,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   basePrice: z.number().positive(),
   isOnWebMenu: z.boolean().optional().default(true),
-  imageUrl: z.string().url().optional(),
+  imageUrl: z.string().optional().nullable(),
 });
 
 menuRouter.post('/products', authenticate, requireRole('admin'), validate(productSchema), (req, res) => {
