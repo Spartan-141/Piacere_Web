@@ -1,24 +1,25 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check, UtensilsCrossed, TableProperties, SendHorizonal } from 'lucide-react'
 import { Product, ProductExtra } from '@piacere/types'
 import api from '../services/api'
 import { useCartStore } from '../store/useCartStore'
 
+const PAYMENT_METHODS = [
+  { id: 'cash_usd', label: 'Efectivo USD' },
+  { id: 'cash_ves', label: 'Efectivo Bs.' },
+  { id: 'card',     label: 'Tarjeta' },
+  { id: 'transfer', label: 'Transferencia' },
+  { id: 'pago_movil', label: 'Pago Móvil' },
+]
+
 // ── Payment Modal ─────────────────────────────────────────────
-function PaymentModal({ total, onClose, onConfirm }: {
-  total: number; onClose: () => void; onConfirm: (payments: any[], method: string) => void
+function PaymentModal({ total, onClose, onConfirm, loading }: {
+  total: number; onClose: () => void; onConfirm: (method: string, amount: number) => void; loading?: boolean
 }) {
   const [method, setMethod] = useState<string>('cash_usd')
   const [amount, setAmount] = useState(total.toFixed(2))
-
-  const methods = [
-    { id: 'cash_usd', label: 'Efectivo USD' },
-    { id: 'cash_ves', label: 'Efectivo Bs.' },
-    { id: 'card',     label: 'Tarjeta' },
-    { id: 'transfer', label: 'Transferencia' },
-    { id: 'pago_movil', label: 'Pago Móvil' },
-  ]
+  const change = parseFloat(amount) - total
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -28,15 +29,15 @@ function PaymentModal({ total, onClose, onConfirm }: {
           <button onClick={onClose} className="btn-ghost p-1"><X className="w-5 h-5" /></button>
         </div>
 
-        <div className="mb-5">
-          <p className="text-gray-400 text-sm mb-1">Total a cobrar</p>
-          <p className="text-3xl font-bold text-white">${total.toFixed(2)}</p>
+        <div className="mb-5 bg-brand-500/10 border border-brand-500/20 rounded-xl p-4 text-center">
+          <p className="text-gray-400 text-xs mb-1">Total a cobrar</p>
+          <p className="text-4xl font-bold text-white">${total.toFixed(2)}</p>
         </div>
 
         <div className="mb-4">
           <label className="block text-xs text-gray-400 mb-2">Método de pago</label>
           <div className="grid grid-cols-2 gap-2">
-            {methods.map(m => (
+            {PAYMENT_METHODS.map(m => (
               <button
                 key={m.id}
                 onClick={() => setMethod(m.id)}
@@ -61,20 +62,21 @@ function PaymentModal({ total, onClose, onConfirm }: {
             className="input-field w-full text-lg font-semibold"
             step="0.01"
           />
-          {parseFloat(amount) > total && (
-            <p className="text-xs text-emerald-400 mt-1">
-              Vuelto: ${(parseFloat(amount) - total).toFixed(2)}
+          {change > 0 && (
+            <p className="text-xs text-emerald-400 mt-1.5 font-semibold">
+              ✓ Vuelto: ${change.toFixed(2)}
             </p>
           )}
         </div>
 
         <button
           id="btn-confirm-payment"
-          onClick={() => onConfirm([{ method, amount: total }], method)}
-          className="btn-primary w-full py-3 flex items-center justify-center gap-2"
+          onClick={() => onConfirm(method, total)}
+          disabled={loading}
+          className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <CreditCard className="w-4 h-4" />
-          Confirmar Pago
+          {loading ? 'Procesando...' : 'Confirmar Pago'}
         </button>
       </div>
     </div>
@@ -82,49 +84,61 @@ function PaymentModal({ total, onClose, onConfirm }: {
 }
 
 // ── Table Select Modal ─────────────────────────────────────────
-function TableSelectModal({ onClose, onSelect }: { onClose: () => void; onSelect: (tableId: number, tableName: string) => void }) {
+function TableSelectModal({ onClose, onSelect, showAll = false }: {
+  onClose: () => void
+  onSelect: (tableId: number, tableName: string) => void
+  showAll?: boolean
+}) {
   const { data: sections = [] } = useQuery({
     queryKey: ['tables-sections-pos'],
     queryFn: () => api.get('/tables/sections').then(r => r.data)
   })
-  
   const { data: tables = [] } = useQuery({
     queryKey: ['tables-pos'],
     queryFn: () => api.get('/tables').then(r => r.data)
   })
 
+  const visibleTables = showAll ? tables : tables.filter((t: any) => t.status === 'free')
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="glass-panel w-full max-w-3xl p-6 shadow-2xl flex flex-col max-h-[80vh]">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-white">Asignar Mesa</h3>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Asignar Mesa</h3>
+            {!showAll && <p className="text-xs text-gray-500">Solo mesas disponibles</p>}
+          </div>
           <button onClick={onClose} className="btn-ghost p-1"><X className="w-5 h-5" /></button>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto pr-2 space-y-6">
           {sections.map((sec: any) => {
-            const secTables = tables.filter((t: any) => t.section_id === sec.id && t.status === 'free')
+            const secTables = visibleTables.filter((t: any) => t.section_id === sec.id)
             if (secTables.length === 0) return null
             return (
               <div key={sec.id}>
-                <h4 className="text-gray-400 text-sm font-medium mb-3">{sec.name} (Libres)</h4>
+                <h4 className="text-gray-400 text-sm font-medium mb-3">{sec.name}</h4>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {secTables.map((t: any) => (
                     <button
                       key={t.id}
                       onClick={() => onSelect(t.id, t.name)}
-                      className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-emerald-500/20 hover:scale-105 transition-all"
+                      className={`rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-105 border ${
+                        t.status === 'free'
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                      }`}
                     >
-                      <span className="font-bold">{t.name}</span>
-                      <span className="text-[10px] uppercase">Libre</span>
+                      <span className="font-bold text-base">{t.name}</span>
+                      <span className="text-[10px] uppercase">{t.status === 'free' ? 'Libre' : 'Ocupada'}</span>
                     </button>
                   ))}
                 </div>
               </div>
             )
           })}
-          {tables.filter((t: any) => t.status === 'free').length === 0 && (
-            <div className="text-center text-gray-500 py-10">No hay mesas libres disponibles.</div>
+          {visibleTables.length === 0 && (
+            <div className="text-center text-gray-500 py-10">No hay mesas disponibles.</div>
           )}
         </div>
       </div>
@@ -133,8 +147,8 @@ function TableSelectModal({ onClose, onSelect }: { onClose: () => void; onSelect
 }
 
 // ── Extras Selection Modal ──────────────────────────────────────
-function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: { 
-  product: Product; extras: ProductExtra[]; onClose: () => void; onConfirm: (extras: ProductExtra[]) => void 
+function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
+  product: Product; extras: ProductExtra[]; onClose: () => void; onConfirm: (extras: ProductExtra[]) => void
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
 
@@ -159,9 +173,9 @@ function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
           </div>
           <button onClick={onClose} className="btn-ghost p-1"><X className="w-5 h-5" /></button>
         </div>
-        
+
         <h4 className="text-sm font-medium text-gray-400 mb-3 border-b border-white/10 pb-2">Seleccionar Adicionales</h4>
-        
+
         <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 gap-2 custom-scrollbar">
           {extras.map(e => {
             const isSelected = selected.has(e.id)
@@ -170,8 +184,8 @@ function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
                 key={e.id}
                 onClick={() => toggle(e)}
                 className={`flex justify-between items-center p-3 rounded-lg border text-sm transition-all ${
-                  isSelected 
-                    ? 'bg-brand-500/20 border-brand-500 text-brand-300' 
+                  isSelected
+                    ? 'bg-brand-500/20 border-brand-500 text-brand-300'
                     : 'bg-white/5 border-white/5 text-gray-300 hover:bg-white/10'
                 }`}
               >
@@ -184,18 +198,18 @@ function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
             )
           })}
         </div>
-        
+
         <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center">
-           <div>
-             <p className="text-xs text-gray-400 mb-1">Total con adicionales</p>
-             <p className="text-xl font-bold text-white">${finalPrice.toFixed(2)}</p>
-           </div>
-           <button 
-             onClick={() => onConfirm(selectedExtras)}
-             className="btn-primary py-2 px-6 flex items-center gap-2 text-sm"
-           >
-             <Plus className="w-4 h-4" /> Añadir al Pedido
-           </button>
+          <div>
+            <p className="text-xs text-gray-400 mb-1">Total con adicionales</p>
+            <p className="text-xl font-bold text-white">${finalPrice.toFixed(2)}</p>
+          </div>
+          <button
+            onClick={() => onConfirm(selectedExtras)}
+            className="btn-primary py-2 px-6 flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" /> Añadir al Pedido
+          </button>
         </div>
       </div>
     </div>
@@ -203,47 +217,57 @@ function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
 }
 
 // ── Cart Panel ───────────────────────────────────────────────
-function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: { 
-  onAssignTable: () => void; 
-  onSendToKitchen: () => void; 
-  onQuickPay: () => void 
+function CartPanel({ onAssignTable, onPay, onSendToOrders, loading }: {
+  onAssignTable: () => void
+  onPay: () => void
+  onSendToOrders: () => void
+  loading?: boolean
 }) {
   const { items, subtotal, total, discount, setDiscount, removeItem, updateQuantity, clearCart, tableId } = useCartStore()
 
-  // Find table name if assigned (Optional enhancement: fetch table name, or just show ID for now)
-  const [tableName, setTableName] = useState<string | null>(null)
-  
-  // We fetch tables to resolve the table name
   const { data: tables = [] } = useQuery({
     queryKey: ['tables-pos'],
     queryFn: () => api.get('/tables').then(r => r.data)
   })
 
-  // Set tableName based on selected tableId
-  if (tableId && !tableName && tables.length > 0) {
-    const t = tables.find((t: any) => t.id === tableId)
-    if (t) setTableName(t.name)
-  }
+  const tableObj = tables.find((t: any) => t.id === tableId)
 
   if (items.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-2">
-        <CreditCard className="w-10 h-10" />
-        <p className="text-sm">Carrito vacío</p>
-        <p className="text-xs">Selecciona productos del menú</p>
+      <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-3">
+        <UtensilsCrossed className="w-10 h-10 opacity-40" />
+        <div className="text-center">
+          <p className="text-sm font-medium">Carrito vacío</p>
+          <p className="text-xs mt-0.5">Selecciona productos del menú</p>
+        </div>
       </div>
     )
   }
 
   return (
     <>
-      {tableId && (
-        <div className="bg-brand-500/10 border border-brand-500/20 rounded-lg p-2 mb-2 flex justify-between items-center">
-           <span className="text-brand-300 text-xs font-semibold">Mesa Asignada:</span>
-           <span className="text-white text-sm font-bold">{tableName || `#${tableId}`}</span>
-           <button onClick={() => { useCartStore.getState().setTable(null); setTableName(null) }} className="text-gray-400 hover:text-red-400"><X className="w-4 h-4" /></button>
+      {/* Assigned table badge */}
+      {tableId ? (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 mb-3 flex justify-between items-center">
+          <span className="text-emerald-400 text-xs font-semibold">Mesa:</span>
+          <span className="text-white text-sm font-bold">{tableObj?.name || `#${tableId}`}</span>
+          <button
+            onClick={onAssignTable}
+            className="text-xs text-emerald-500 hover:text-emerald-300 underline"
+          >
+            Cambiar
+          </button>
         </div>
+      ) : (
+        <button
+          onClick={onAssignTable}
+          className="w-full mb-3 flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-white hover:border-white/40 text-xs font-medium transition-colors"
+        >
+          <TableProperties className="w-4 h-4" /> Asignar Mesa
+        </button>
       )}
+
+      {/* Items list */}
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {items.map(item => (
           <div key={item.id} className="bg-white/4 rounded-lg px-3 py-2.5">
@@ -251,7 +275,7 @@ function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white leading-tight">{item.name}</p>
                 {item.extras.length > 0 && (
-                  <p className="text-[10px] text-gray-400 leading-tight mt-1">
+                  <p className="text-[10px] text-gray-400 leading-tight mt-0.5">
                     + {item.extras.map(e => e.name).join(', ')}
                   </p>
                 )}
@@ -276,6 +300,7 @@ function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: {
         ))}
       </div>
 
+      {/* Totals + actions */}
       <div className="border-t border-white/8 pt-3 space-y-2 mt-3">
         <div className="flex justify-between text-sm text-gray-400">
           <span>Subtotal</span><span>${subtotal().toFixed(2)}</span>
@@ -287,29 +312,29 @@ function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: {
             className="input-field flex-1 text-sm py-1 px-2" min="0" step="0.5"
           />
         </div>
-        <div className="flex justify-between font-bold text-white mb-2">
+        <div className="flex justify-between font-bold text-white mb-3">
           <span>Total</span><span className="text-brand-400">${total().toFixed(2)}</span>
         </div>
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-2">
-          {!tableId && (
-            <button onClick={onAssignTable} className="col-span-2 btn-secondary py-2 text-sm border-dashed">
-               + Asignar Mesa
-            </button>
-          )}
-          
-          <button onClick={onSendToKitchen} className={`${tableId ? 'col-span-2' : ''} btn-primary py-2 text-sm bg-blue-600 hover:bg-blue-700 shadow-blue-900/20 shadow-lg`}>
-             A Cocina
-          </button>
-          
-          {!tableId && (
-            <button onClick={onQuickPay} className="btn-primary py-2 text-sm bg-emerald-600 hover:bg-emerald-700 shadow-emerald-900/20 shadow-lg">
-               Pagar
-            </button>
-          )}
-        </div>
-        
-        <button onClick={clearCart} className="btn-ghost w-full text-xs text-gray-600 mt-2">
+
+        {/* Action buttons */}
+        <button
+          onClick={onPay}
+          disabled={loading}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-900/30"
+        >
+          <CreditCard className="w-4 h-4" />
+          Pagar
+        </button>
+        <button
+          onClick={onSendToOrders}
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/30"
+        >
+          <SendHorizonal className="w-4 h-4" />
+          Enviar a Órdenes
+        </button>
+
+        <button onClick={clearCart} className="btn-ghost w-full text-xs text-gray-600 mt-1">
           Limpiar carrito
         </button>
       </div>
@@ -317,6 +342,7 @@ function CartPanel({ onAssignTable, onSendToKitchen, onQuickPay }: {
   )
 }
 
+// ── Main POS Page ─────────────────────────────────────────────
 export default function POSPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
@@ -324,6 +350,7 @@ export default function POSPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [showTableSelect, setShowTableSelect] = useState(false)
   const [extrasModalData, setExtrasModalData] = useState<Product | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
   const { addItem, items, total, tableId, setTable } = useCartStore()
 
   const { data: categories = [] } = useQuery({
@@ -343,9 +370,7 @@ export default function POSPage() {
 
   const createOrder = useMutation({
     mutationFn: (data: any) => api.post('/orders', data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['orders'] })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
   })
 
   const filtered = products.filter((p: Product) =>
@@ -368,55 +393,52 @@ export default function POSPage() {
     }
   }
 
-  const handleSendOrder = async () => {
-    const { items: cartItems, tableId, orderType, discount } = useCartStore.getState()
-    if (cartItems.length === 0) return
-
-    try {
-      await createOrder.mutateAsync({
-        type: tableId ? 'dine_in' : 'takeaway',
-        source: 'pos',
-        tableId: tableId || undefined,
-        discount,
-        items: cartItems.map(i => ({
-          productId: i.productId,
-          extraIds: i.extras?.map((e: any) => e.id) || [],
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          notes: i.notes,
-        })),
-      })
-      useCartStore.getState().clearCart()
-      // Opcional: mostrar notificación de éxito
-    } catch (err) {
-      console.error('Error creando pedido', err)
+  const buildOrderPayload = (paid: boolean) => {
+    const { items: cartItems, tableId, discount } = useCartStore.getState()
+    return {
+      type: tableId ? 'dine_in' : 'takeaway',
+      source: 'pos',
+      tableId: tableId || undefined,
+      discount,
+      paid,
+      items: cartItems.map(i => ({
+        productId: i.productId,
+        extraIds: i.extras?.map((e: any) => e.id) || [],
+        quantity: i.quantity,
+        unitPrice: i.unitPrice,
+        notes: i.notes,
+      })),
     }
   }
 
-  const handleConfirmOrder = async (payments: any[]) => {
-    const { items: cartItems, tableId, orderType, discount } = useCartStore.getState()
+  // Send to orders (no payment)
+  const handleSendToOrders = async () => {
+    if (items.length === 0) return
+    setActionLoading(true)
     try {
-      const order = await createOrder.mutateAsync({
-        type: tableId ? 'dine_in' : 'takeaway',
-        source: 'pos',
-        tableId: tableId || undefined,
-        discount,
-        items: cartItems.map(i => ({
-          productId: i.productId,
-          extraIds: i.extras?.map((e: any) => e.id) || [],
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          notes: i.notes,
-        })),
-      })
-      // Registrar pago
-      for (const p of payments) {
-        await api.post(`/orders/${order.data.id}/payments`, p)
-      }
+      await createOrder.mutateAsync(buildOrderPayload(false))
+      useCartStore.getState().clearCart()
+      qc.invalidateQueries({ queryKey: ['active-orders'] })
+    } catch (err) {
+      console.error('Error enviando pedido', err)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  // Pay: create order + register payment
+  const handleConfirmPayment = async (method: string, amount: number) => {
+    setActionLoading(true)
+    try {
+      const order = await createOrder.mutateAsync(buildOrderPayload(true))
+      await api.post(`/orders/${order.data.id}/payments`, { method, amount })
       useCartStore.getState().clearCart()
       setShowPayment(false)
+      qc.invalidateQueries({ queryKey: ['active-orders'] })
     } catch (err) {
-      console.error('Error creando pedido con pago', err)
+      console.error('Error procesando pago', err)
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -437,7 +459,6 @@ export default function POSPage() {
               className="input-field w-full pl-9"
             />
           </div>
-          {/* Categories Dropdown */}
           <div className="relative min-w-48">
             <select
               value={selectedCategory || ''}
@@ -466,7 +487,6 @@ export default function POSPage() {
                     <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{product.description}</p>
                   )}
                 </div>
-
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-brand-400 font-bold text-sm">
                     ${product.basePrice.toFixed(2)}
@@ -490,10 +510,11 @@ export default function POSPage() {
         <h2 className="text-sm font-semibold text-gray-300 mb-3">
           Pedido · <span className="text-brand-400">{items.length} ítem{items.length !== 1 ? 's' : ''}</span>
         </h2>
-        <CartPanel 
-          onAssignTable={() => setShowTableSelect(true)} 
-          onSendToKitchen={handleSendOrder} 
-          onQuickPay={() => setShowPayment(true)} 
+        <CartPanel
+          onAssignTable={() => setShowTableSelect(true)}
+          onPay={() => setShowPayment(true)}
+          onSendToOrders={handleSendToOrders}
+          loading={actionLoading}
         />
       </div>
 
@@ -502,7 +523,8 @@ export default function POSPage() {
         <PaymentModal
           total={total()}
           onClose={() => setShowPayment(false)}
-          onConfirm={handleConfirmOrder}
+          onConfirm={handleConfirmPayment}
+          loading={actionLoading}
         />
       )}
 

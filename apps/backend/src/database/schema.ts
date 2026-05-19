@@ -104,6 +104,7 @@ export function runMigrations(db: any): void {
       discount            REAL DEFAULT 0,
       tax                 REAL DEFAULT 0,
       total               REAL DEFAULT 0,
+      paid                INTEGER DEFAULT 0,
       created_by          INTEGER REFERENCES users(id),
       created_at          TEXT DEFAULT (datetime('now')),
       updated_at          TEXT DEFAULT (datetime('now'))
