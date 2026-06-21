@@ -47,6 +47,7 @@ export interface Order {
   tax: number;
   total: number;
   createdBy: number | null;
+  tip?: number;
   items?: OrderItem[];
   payments?: Payment[];
   createdAt: string;
@@ -71,4 +72,5 @@ export interface CreateOrderInput {
   deliveryNotes?: string;
   items: CreateOrderItemInput[];
   discount?: number;
+  tip?: number;
 }

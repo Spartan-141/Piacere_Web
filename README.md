@@ -1,23 +1,38 @@
 # 🍕 Piacere 2.0 — Management Ecosystem
 
-Bienvenido al ecosistema integral de gestión para **Piacere**. Este proyecto es un monorepo robusto diseñado para manejar todas las operaciones de un restaurante/pizzería moderno, desde el Punto de Venta (POS) y la gestión de inventario hasta una landing page comercial con e-commerce integrado.
+Bienvenido al ecosistema integral de gestión para **Piacere**. Este proyecto es un monorepo basado en **pnpm** y **Turborepo** que organiza las aplicaciones principales del sistema en carpetas independientes, manteniendo contratos compartidos para evitar duplicación de tipos y DTOs.
 
 ---
 
 ## 🏗️ Arquitectura del Sistema
 
-El proyecto utiliza un enfoque de **Monorepo** basado en **pnpm** y **Turborepo** para una orquestación eficiente.
+El proyecto está separado por aplicaciones:
 
-- **`apps/backend`**: Servidor Node.js con Express y SQLite (`better-sqlite3`). Maneja la lógica de negocio, autenticación, pedidos e inventario real.
-- **`apps/admin`**: Panel administrativo y POS construido con React 18 + Vite + Tailwind CSS. Diseñado con una estética _Glassmorphism_ oscura.
-- **`apps/web`**: Landing page y catálogo comercial para clientes finales.
-- **`packages/types`**: Paquete interno que centraliza los tipos de TypeScript compartidos entre todas las aplicaciones, garantizando consistencia absoluta en los DTOs.
+- **`backend/`**: API Node.js con Express y SQLite (`better-sqlite3`). Maneja autenticación, menú, pedidos, mesas y clientes.
+- **`admin/`**: Panel administrativo y POS construido con React 18 + Vite + Tailwind CSS.
+- **`web/`**: Landing page y catálogo comercial para clientes finales.
+- **`packages/contracts/`**: Paquete interno que centraliza tipos, DTOs y contratos compartidos entre backend, admin y web.
+
+Estructura principal:
+
+```txt
+piacere/
+├─ backend/
+├─ admin/
+├─ web/
+├─ packages/
+│  └─ contracts/
+├─ package.json
+├─ pnpm-workspace.yaml
+├─ turbo.json
+└─ README.md
+```
+
+Esta separación permite ejecutar y desplegar cada aplicación de forma independiente, pero mantiene una fuente única de verdad para los tipos compartidos.
 
 ---
 
 ## 🚀 Cómo Iniciar el Sistema
-
-Sigue estos pasos para levantar el entorno de desarrollo completo.
 
 ### 1. Requisitos Previos
 
@@ -32,13 +47,27 @@ Desde la raíz del proyecto, ejecuta:
 pnpm install
 ```
 
-### 3. Configuración de Base de Datos (Semilla)
+### 3. Configuración de Base de Datos
 
-Debes poblar la base de datos con el menú, mesas, categorías y usuarios administrativos iniciales:
+Copia los archivos de ejemplo:
 
 ```bash
-cd apps/backend
-npx ts-node src/database/seed.ts
+copy backend\.env.example backend\.env
+copy admin\.env.example admin\.env
+copy web\.env.example web\.env
+```
+
+Luego pobla la base de datos con el menú, mesas, categorías y usuarios administrativos iniciales:
+
+```bash
+pnpm db:seed
+```
+
+También puedes ejecutar el seed directamente desde el backend:
+
+```bash
+cd backend
+pnpm db:seed
 ```
 
 ### 4. Lanzar el Entorno de Desarrollo
@@ -55,6 +84,14 @@ Esto iniciará los siguientes servicios:
 - **Admin POS**: [http://localhost:5173](http://localhost:5173)
 - **Web Cliente**: [http://localhost:5174](http://localhost:5174)
 
+Puedes ejecutar cada aplicación por separado:
+
+```bash
+pnpm dev:backend
+pnpm dev:admin
+pnpm dev:web
+```
+
 ---
 
 ## 🔑 Credenciales de Acceso (Modo Pruebas)
@@ -67,24 +104,41 @@ Esto iniciará los siguientes servicios:
 
 ---
 
+## 🧰 Scripts Principales
+
+Desde la raíz:
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+
+pnpm dev:backend
+pnpm dev:admin
+pnpm dev:web
+
+pnpm build:backend
+pnpm build:admin
+pnpm build:web
+
+pnpm db:seed
+```
+
+---
+
 ## 🍕 Módulos Implementados
 
 ### 1. Punto de Venta (POS)
 
-- Catalogo táctil con variantes de productos.
+- Catálogo táctil con productos y adicionales.
 - Carrito de compras persistente.
-- Pagos multi-moneda (USD y VES) con soporte de tasa de cambio.
 - Soporte para métodos: Efectivo Bs., Efectivo $, Pago Móvil y Transferencia.
 
-### 2. Gestión de Mesas (Avanzado)
+### 2. Gestión de Mesas
 
-- Mapa visual del salón por **Zonas** (Terraza, Principal, Barra).
-- Autogeneración de nombres de mesa (P1, T2, etc.).
-- **Estados de color**:
-  - 🟢 **Verde**: Libre.
-  - 🔴 **Rojo (Animado)**: Esperando orden (Alerta de prioridad).
-  - 🔵 **Azul**: Orden entregada / Mesa servida.
-  - 🟡 **Amarillo**: Mesa Reservada.
+- Mapa visual del salón por zonas.
+- Autogeneración de nombres de mesa.
+- Estados de mesa: libre, esperando orden, servida y reservada.
 - Acceso directo al POS desde la mesa.
 
 ### 3. CMS y E-commerce
@@ -96,9 +150,21 @@ Esto iniciará los siguientes servicios:
 
 ## 🛠️ Tecnologías Principales
 
-- **Backend**: Express, SQLite (WAL Mode), Zod (Validación), JWT (Seguridad), bcrypt (Cifrado).
-- **Frontend**: React 18, React Query v5 (Caching), Zustand (Estado), Lucide Icons, Tailwind CSS.
+- **Backend**: Express, SQLite, Zod, JWT, bcrypt.
+- **Frontend**: React 18, React Query v5, Zustand, Lucide Icons, Tailwind CSS.
 - **DevOps**: Turborepo, pnpm workspaces, TypeScript 5.
+
+---
+
+## 🔮 Roadmap de Refactorización
+
+La separación actual deja listo el proyecto para los siguientes pasos:
+
+1. Separar backend en servicios, repositorios y DTOs.
+2. Consolidar contratos compartidos en `packages/contracts`.
+3. Refactorizar admin por features.
+4. Refactorizar web por features.
+5. Migrar backend a NestJS cuando la arquitectura interna esté estable.
 
 ---
 

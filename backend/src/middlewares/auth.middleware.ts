@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AuthTokenPayload } from '@piacere/types';
+import { AuthTokenPayload } from '@piacere/contracts';
 
 declare global {
   namespace Express {

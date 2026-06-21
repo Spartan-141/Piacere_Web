@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { Product, ProductExtra } from '@piacere/types'
+import { Product, ProductExtra } from '@piacere/contracts'
 
 export interface WebCartItem {
   id: string

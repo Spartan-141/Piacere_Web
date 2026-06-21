@@ -22,6 +22,7 @@ const createOrderSchema = z.object({
   deliveryNotes: z.string().optional(),
   discount: z.number().min(0).optional().default(0),
   paid: z.boolean().optional().default(false),
+  tip: z.number().min(0).optional().default(0),
   items: z.array(z.object({
     productId: z.number().optional(),
     extraIds: z.array(z.number()).optional(),
@@ -120,7 +121,7 @@ ordersRouter.get('/:id', authenticate, (req, res) => {
 // POST /api/orders — create order
 ordersRouter.post('/', authenticate, validate(createOrderSchema), (req, res) => {
   const db = getDb();
-  const { type, source, tableId, customerId, deliveryAddressId, deliveryNotes, discount, paid, items } = req.body;
+  const { type, source, tableId, customerId, deliveryAddressId, deliveryNotes, discount, paid, items, tip } = req.body;
 
   const subtotal = items.reduce((sum: number, i: any) => sum + i.unitPrice * i.quantity, 0);
   const total = subtotal - (discount || 0);
@@ -128,14 +129,14 @@ ordersRouter.post('/', authenticate, validate(createOrderSchema), (req, res) => 
   const insertOrder = db.transaction(() => {
     const orderResult = db.prepare(`
       INSERT INTO orders (order_number, type, source, table_id, customer_id, delivery_address_id, delivery_notes,
-                          subtotal, discount, total, paid, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          subtotal, discount, total, paid, created_by, tip)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       generateOrderNumber(), type, source ?? 'pos',
-      tableId || null, customerId || null,
+      (type === 'dine_in' ? tableId : null) || null, customerId || null,
       deliveryAddressId || null, deliveryNotes || null,
       subtotal, discount || 0, total, paid ? 1 : 0,
-      req.user!.userId
+      req.user!.userId, tip || 0
     );
 
     const orderId = orderResult.lastInsertRowid;
@@ -231,12 +232,42 @@ ordersRouter.patch('/:id/table', authenticate, (req, res) => {
     // Assign new table
     if (tableId) {
       db.prepare("UPDATE tables SET status = 'waiting_order' WHERE id = ?").run(tableId);
+      db.prepare(`UPDATE orders SET table_id = ?, type = 'dine_in', updated_at = datetime('now') WHERE id = ?`)
+        .run(tableId, order.id);
+    } else {
+      const newType = order.type === 'dine_in' ? 'takeaway' : order.type;
+      db.prepare(`UPDATE orders SET table_id = null, type = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(newType, order.id);
     }
-    db.prepare(`UPDATE orders SET table_id = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(tableId || null, order.id);
   })();
 
   return res.json({ message: 'Mesa actualizada' });
+});
+
+// PATCH /api/orders/:id/type — change the order type
+ordersRouter.patch('/:id/type', authenticate, (req, res) => {
+  const db = getDb();
+  const { type } = req.body;
+  if (!['dine_in', 'takeaway', 'delivery', 'phone'].includes(type)) {
+    return res.status(400).json({ error: 'Tipo de pedido inválido' });
+  }
+
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id) as any;
+  if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+
+  db.transaction(() => {
+    // If changing from dine_in to takeaway (or anything else), free the table
+    if (type !== 'dine_in' && order.table_id) {
+      db.prepare("UPDATE tables SET status = 'free' WHERE id = ?").run(order.table_id);
+      db.prepare(`UPDATE orders SET type = ?, table_id = null, updated_at = datetime('now') WHERE id = ?`)
+        .run(type, order.id);
+    } else {
+      db.prepare(`UPDATE orders SET type = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(type, order.id);
+    }
+  })();
+
+  return res.json({ message: 'Tipo de pedido actualizado' });
 });
 
 // PATCH /api/orders/:id/status
@@ -265,16 +296,22 @@ ordersRouter.patch('/:id/status', authenticate, (req, res) => {
 // POST /api/orders/:id/payments — register a payment and mark order as paid
 ordersRouter.post('/:id/payments', authenticate, (req, res) => {
   const db = getDb();
-  const { method, amount, reference } = req.body;
+  const { method, amount, reference, tip } = req.body;
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id) as any;
   if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
 
   db.transaction(() => {
     db.prepare('INSERT INTO payments (order_id, method, amount, reference) VALUES (?, ?, ?, ?)')
       .run(req.params.id, method, amount, reference || null);
-    // Mark order as paid
-    db.prepare(`UPDATE orders SET paid = 1, updated_at = datetime('now') WHERE id = ?`)
-      .run(req.params.id);
+    
+    // Mark order as paid and update tip if provided
+    if (tip !== undefined) {
+      db.prepare(`UPDATE orders SET paid = 1, tip = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(tip, req.params.id);
+    } else {
+      db.prepare(`UPDATE orders SET paid = 1, updated_at = datetime('now') WHERE id = ?`)
+        .run(req.params.id);
+    }
   })();
 
   return res.status(201).json({ message: 'Pago registrado' });

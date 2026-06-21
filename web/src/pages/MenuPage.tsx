@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Search, Plus, X, Check } from 'lucide-react'
-import { Product, Category, ProductExtra } from '@piacere/types'
+import { Product, Category, ProductExtra } from '@piacere/contracts'
 import { useWebCartStore } from '../store/useWebCartStore'
 import axios from 'axios'
 

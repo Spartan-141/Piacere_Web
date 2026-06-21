@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@piacere/web",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@piacere/types": "workspace:*",
+    "@piacere/contracts": "workspace:*",
     "@tanstack/react-query": "^5.51.1",
     "axios": "^1.7.2",
     "lucide-react": "^0.408.0",

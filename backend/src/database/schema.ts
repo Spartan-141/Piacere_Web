@@ -106,6 +106,7 @@ export function runMigrations(db: any): void {
       total               REAL DEFAULT 0,
       paid                INTEGER DEFAULT 0,
       created_by          INTEGER REFERENCES users(id),
+      tip                 REAL DEFAULT 0,
       created_at          TEXT DEFAULT (datetime('now')),
       updated_at          TEXT DEFAULT (datetime('now'))
     );
@@ -136,4 +137,16 @@ export function runMigrations(db: any): void {
       paid_at     TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migraciones incrementales para base de datos existente
+  try {
+    const tableInfo = db.prepare("PRAGMA table_info(orders)").all();
+    const hasTip = tableInfo.some((col: any) => col.name === 'tip');
+    if (!hasTip) {
+      db.exec("ALTER TABLE orders ADD COLUMN tip REAL DEFAULT 0;");
+      console.log("⚡ Columna 'tip' agregada exitosamente a la tabla 'orders'");
+    }
+  } catch (err) {
+    console.error("⚠️ Error ejecutando migración incremental para la columna 'tip':", err);
+  }
 }

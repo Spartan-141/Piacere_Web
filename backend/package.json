@@ -1,5 +1,5 @@
 {
-  "name": "backend",
+  "name": "@piacere/backend",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -9,7 +9,7 @@
     "db:seed": "ts-node src/database/seed.ts"
   },
   "dependencies": {
-    "@piacere/types": "workspace:*",
+    "@piacere/contracts": "workspace:*",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.5.0",
     "cors": "^2.8.5",

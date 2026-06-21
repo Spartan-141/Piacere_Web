@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Product, ProductExtra } from '@piacere/types';
+import { Product, ProductExtra } from '@piacere/contracts';
 
 export interface CartItem {
   id: string; // unique key: product-extras
@@ -86,7 +86,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   updateNotes: (id, notes) =>
     set((state) => ({ items: state.items.map((i) => (i.id === id ? { ...i, notes } : i)) })),
 
-  clearCart: () => set({ items: [], tableId: null, discount: 0 }),
+  clearCart: () => set({ items: [], tableId: null, orderType: 'dine_in', discount: 0 }),
 
   subtotal: () => get().items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0),
   total: () => {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User } from '@piacere/types';
+import { User } from '@piacere/contracts';
 
 interface AuthState {
   user: User | null;

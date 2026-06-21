@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check, UtensilsCrossed, TableProperties, SendHorizonal } from 'lucide-react'
-import { Product, ProductExtra } from '@piacere/types'
+import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check, UtensilsCrossed, TableProperties, SendHorizonal, ShoppingBag } from 'lucide-react'
+import { Product, ProductExtra } from '@piacere/contracts'
 import api from '../services/api'
 import { useCartStore } from '../store/useCartStore'
 
@@ -15,11 +15,12 @@ const PAYMENT_METHODS = [
 
 // ── Payment Modal ─────────────────────────────────────────────
 function PaymentModal({ total, onClose, onConfirm, loading }: {
-  total: number; onClose: () => void; onConfirm: (method: string, amount: number) => void; loading?: boolean
+  total: number; onClose: () => void; onConfirm: (method: string, amount: number, tip: number) => void; loading?: boolean
 }) {
   const [method, setMethod] = useState<string>('cash_usd')
+  const [tip, setTip] = useState<number>(0)
   const [amount, setAmount] = useState(total.toFixed(2))
-  const change = parseFloat(amount) - total
+  const change = parseFloat(amount) - (total + tip)
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -30,8 +31,57 @@ function PaymentModal({ total, onClose, onConfirm, loading }: {
         </div>
 
         <div className="mb-5 bg-brand-500/10 border border-brand-500/20 rounded-xl p-4 text-center">
-          <p className="text-gray-400 text-xs mb-1">Total a cobrar</p>
-          <p className="text-4xl font-bold text-white">${total.toFixed(2)}</p>
+          <p className="text-gray-400 text-xs mb-1">Total a cobrar (con propina)</p>
+          <p className="text-4xl font-bold text-white">${(total + tip).toFixed(2)}</p>
+          {tip > 0 && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              Pedido: ${total.toFixed(2)} + Propina: ${tip.toFixed(2)}
+            </p>
+          )}
+        </div>
+
+        {/* Propina Section */}
+        <div className="mb-5">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-xs text-gray-400">Propina (Tip)</label>
+            {tip > 0 && <span className="text-xs text-brand-400 font-semibold">+${tip.toFixed(2)}</span>}
+          </div>
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {[0, 5, 10, 15].map((pct) => {
+              const tipVal = parseFloat((total * (pct / 100)).toFixed(2));
+              const isSelected = tip === tipVal;
+              return (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => {
+                    setTip(tipVal);
+                    setAmount((total + tipVal).toFixed(2));
+                  }}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    isSelected
+                      ? 'bg-brand-500/20 border-brand-500 text-brand-300'
+                      : 'border-white/10 text-gray-400 hover:bg-white/5'
+                  }`}
+                >
+                  {pct === 0 ? '0%' : `${pct}%`}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="number"
+            placeholder="Propina personalizada"
+            value={tip === 0 ? '' : tip}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value) || 0;
+              setTip(val);
+              setAmount((total + val).toFixed(2));
+            }}
+            className="input-field w-full text-sm"
+            step="0.1"
+            min="0"
+          />
         </div>
 
         <div className="mb-4">
@@ -71,7 +121,7 @@ function PaymentModal({ total, onClose, onConfirm, loading }: {
 
         <button
           id="btn-confirm-payment"
-          onClick={() => onConfirm(method, total)}
+          onClick={() => onConfirm(method, total + tip, tip)}
           disabled={loading}
           className="btn-primary w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50"
         >
@@ -223,7 +273,7 @@ function CartPanel({ onAssignTable, onPay, onSendToOrders, loading }: {
   onSendToOrders: () => void
   loading?: boolean
 }) {
-  const { items, subtotal, total, discount, setDiscount, removeItem, updateQuantity, clearCart, tableId } = useCartStore()
+  const { items, subtotal, total, discount, setDiscount, removeItem, updateQuantity, clearCart, tableId, orderType, setOrderType, setTable } = useCartStore()
 
   const { data: tables = [] } = useQuery({
     queryKey: ['tables-pos'],
@@ -246,25 +296,58 @@ function CartPanel({ onAssignTable, onPay, onSendToOrders, loading }: {
 
   return (
     <>
-      {/* Assigned table badge */}
-      {tableId ? (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 mb-3 flex justify-between items-center">
-          <span className="text-emerald-400 text-xs font-semibold">Mesa:</span>
-          <span className="text-white text-sm font-bold">{tableObj?.name || `#${tableId}`}</span>
+      {/* Selector de Tipo de Pedido */}
+      <div className="grid grid-cols-2 gap-1 bg-black/40 p-1 rounded-xl border border-white/5 mb-3 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => setOrderType('dine_in')}
+          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+            orderType === 'dine_in'
+              ? 'bg-brand-500 text-white shadow-md'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <UtensilsCrossed className="w-3.5 h-3.5" />
+          Comer Aquí
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOrderType('takeaway')
+            setTable(null)
+          }}
+          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+            orderType === 'takeaway'
+              ? 'bg-brand-500 text-white shadow-md'
+              : 'text-gray-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <ShoppingBag className="w-3.5 h-3.5" />
+          Para Llevar
+        </button>
+      </div>
+
+      {/* Assigned table badge (only shown for dine_in) */}
+      {orderType === 'dine_in' && (
+        tableId ? (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-2 mb-3 flex justify-between items-center transition-all">
+            <span className="text-emerald-400 text-xs font-semibold">Mesa:</span>
+            <span className="text-white text-sm font-bold">{tableObj?.name || `#${tableId}`}</span>
+            <button
+              onClick={onAssignTable}
+              className="text-xs text-emerald-500 hover:text-emerald-300 underline"
+            >
+              Cambiar
+            </button>
+          </div>
+        ) : (
           <button
             onClick={onAssignTable}
-            className="text-xs text-emerald-500 hover:text-emerald-300 underline"
+            className="w-full mb-3 flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-white hover:border-white/40 text-xs font-medium transition-colors"
           >
-            Cambiar
+            <TableProperties className="w-4 h-4" /> Asignar Mesa
           </button>
-        </div>
-      ) : (
-        <button
-          onClick={onAssignTable}
-          className="w-full mb-3 flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-white hover:border-white/40 text-xs font-medium transition-colors"
-        >
-          <TableProperties className="w-4 h-4" /> Asignar Mesa
-        </button>
+        )
       )}
 
       {/* Items list */}
@@ -351,7 +434,7 @@ export default function POSPage() {
   const [showTableSelect, setShowTableSelect] = useState(false)
   const [extrasModalData, setExtrasModalData] = useState<Product | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const { addItem, items, total, tableId, setTable } = useCartStore()
+  const { addItem, items, total, tableId, setTable, setOrderType } = useCartStore()
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -393,14 +476,15 @@ export default function POSPage() {
     }
   }
 
-  const buildOrderPayload = (paid: boolean) => {
-    const { items: cartItems, tableId, discount } = useCartStore.getState()
+  const buildOrderPayload = (paid: boolean, tip: number = 0) => {
+    const { items: cartItems, tableId, discount, orderType } = useCartStore.getState()
     return {
-      type: tableId ? 'dine_in' : 'takeaway',
+      type: orderType,
       source: 'pos',
-      tableId: tableId || undefined,
+      tableId: orderType === 'dine_in' ? (tableId || undefined) : undefined,
       discount,
       paid,
+      tip,
       items: cartItems.map(i => ({
         productId: i.productId,
         extraIds: i.extras?.map((e: any) => e.id) || [],
@@ -416,7 +500,7 @@ export default function POSPage() {
     if (items.length === 0) return
     setActionLoading(true)
     try {
-      await createOrder.mutateAsync(buildOrderPayload(false))
+      await createOrder.mutateAsync(buildOrderPayload(false, 0))
       useCartStore.getState().clearCart()
       qc.invalidateQueries({ queryKey: ['active-orders'] })
     } catch (err) {
@@ -427,11 +511,11 @@ export default function POSPage() {
   }
 
   // Pay: create order + register payment
-  const handleConfirmPayment = async (method: string, amount: number) => {
+  const handleConfirmPayment = async (method: string, amount: number, tip: number) => {
     setActionLoading(true)
     try {
-      const order = await createOrder.mutateAsync(buildOrderPayload(true))
-      await api.post(`/orders/${order.data.id}/payments`, { method, amount })
+      const order = await createOrder.mutateAsync(buildOrderPayload(true, tip))
+      await api.post(`/orders/${order.data.id}/payments`, { method, amount, tip })
       useCartStore.getState().clearCart()
       setShowPayment(false)
       qc.invalidateQueries({ queryKey: ['active-orders'] })
@@ -534,6 +618,7 @@ export default function POSPage() {
           onClose={() => setShowTableSelect(false)}
           onSelect={(id, name) => {
             setTable(id)
+            setOrderType('dine_in')
             setShowTableSelect(false)
           }}
         />

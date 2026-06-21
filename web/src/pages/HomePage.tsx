@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ChevronRight, Plus, Star, Bike, Clock, Trophy } from 'lucide-react'
-import { Product, Combo } from '@piacere/types'
+import { Product, Combo } from '@piacere/contracts'
 import { useWebCartStore } from '../store/useWebCartStore'
 import axios from 'axios'
 

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react'
+import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2, ShoppingBag } from 'lucide-react'
 import api from '../services/api'
 import ConfirmModal from '../components/ConfirmModal'
-import { Product, ProductExtra } from '@piacere/types'
+import { Product, ProductExtra } from '@piacere/contracts'
 import { useCartStore } from '../store/useCartStore'
 import { useNavigate } from 'react-router-dom'
 
@@ -47,7 +47,9 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
               </div>
               <div className="bg-black/30 rounded-xl p-3 border border-white/5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Tipo</p>
-                <p className="text-sm font-bold text-white capitalize">{data.type.replace('_', ' ')}</p>
+                <p className="text-sm font-bold text-white">
+                  {data.type === 'dine_in' ? 'Comer Aquí' : data.type === 'takeaway' ? 'Para Llevar' : data.type}
+                </p>
               </div>
               <div className="bg-black/30 rounded-xl p-3 border border-white/5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Estado</p>
@@ -111,17 +113,28 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
                   <span>Descuento</span><span>-${parseFloat(data.discount).toFixed(2)}</span>
                 </div>
               )}
+              {data.tip > 0 && (
+                <div className="flex justify-between text-sm text-brand-400">
+                  <span>Propina</span><span>+${parseFloat(data.tip).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between font-bold text-white border-t border-white/10 pt-2 mt-1">
-                <span>Total</span><span className="text-brand-400">${parseFloat(data.total).toFixed(2)}</span>
+                <span>Total con Propina</span>
+                <span className="text-brand-400">
+                  ${(parseFloat(data.total) + parseFloat(data.tip || 0)).toFixed(2)}
+                </span>
               </div>
               {data.total_paid > 0 && (
                 <div className="flex justify-between text-sm text-emerald-400">
                   <span>Total Pagado</span><span>${parseFloat(data.total_paid).toFixed(2)}</span>
                 </div>
               )}
-              {data.total_paid < data.total && (
+              {data.total_paid < (parseFloat(data.total) + parseFloat(data.tip || 0)) && (
                 <div className="flex justify-between text-sm font-semibold text-amber-400 bg-amber-500/10 rounded-lg px-2 py-1 mt-1">
-                  <span>Saldo Pendiente</span><span>${(parseFloat(data.total) - parseFloat(data.total_paid)).toFixed(2)}</span>
+                  <span>Saldo Pendiente</span>
+                  <span>
+                    ${(parseFloat(data.total) + parseFloat(data.tip || 0) - parseFloat(data.total_paid)).toFixed(2)}
+                  </span>
                 </div>
               )}
             </div>
@@ -137,12 +150,13 @@ function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () =
 // ── Modals ──────────────────────────────────────────────────
 
 function PaymentModal({ totalPaid, subtotalTotal, onClose, onConfirm, loading }: {
-  totalPaid: number; subtotalTotal: number; onClose: () => void; onConfirm: (method: string, amount: number) => void; loading?: boolean
+  totalPaid: number; subtotalTotal: number; onClose: () => void; onConfirm: (method: string, amount: number, tip: number) => void; loading?: boolean
 }) {
   const amountToPay = Math.max(0, subtotalTotal - totalPaid)
   const [method, setMethod] = useState<string>('cash_usd')
+  const [tip, setTip] = useState<number>(0)
   const [amount, setAmount] = useState(amountToPay.toFixed(2))
-  const change = parseFloat(amount) - amountToPay
+  const change = parseFloat(amount) - (amountToPay + tip)
 
   const methods = [
     { id: 'cash_usd', label: 'Efectivo USD' },
@@ -161,8 +175,57 @@ function PaymentModal({ totalPaid, subtotalTotal, onClose, onConfirm, loading }:
         </div>
 
         <div className="mb-5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-center">
-          <p className="text-gray-400 text-xs mb-1">Monto Restante</p>
-          <p className="text-4xl font-bold text-white">${amountToPay.toFixed(2)}</p>
+          <p className="text-gray-400 text-xs mb-1">Monto Restante + Propina</p>
+          <p className="text-4xl font-bold text-white">${(amountToPay + tip).toFixed(2)}</p>
+          {tip > 0 && (
+            <p className="text-[11px] text-gray-500 mt-1">
+              Restante: ${amountToPay.toFixed(2)} + Propina: ${tip.toFixed(2)}
+            </p>
+          )}
+        </div>
+
+        {/* Propina Section */}
+        <div className="mb-5">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-xs text-gray-400">Propina (Tip)</label>
+            {tip > 0 && <span className="text-xs text-brand-400 font-semibold">+${tip.toFixed(2)}</span>}
+          </div>
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {[0, 5, 10, 15].map((pct) => {
+              const tipVal = parseFloat((amountToPay * (pct / 100)).toFixed(2));
+              const isSelected = tip === tipVal;
+              return (
+                <button
+                  key={pct}
+                  type="button"
+                  onClick={() => {
+                    setTip(tipVal);
+                    setAmount((amountToPay + tipVal).toFixed(2));
+                  }}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    isSelected
+                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300'
+                      : 'border-white/10 text-gray-400 hover:bg-white/5'
+                  }`}
+                >
+                  {pct === 0 ? '0%' : `${pct}%`}
+                </button>
+              );
+            })}
+          </div>
+          <input
+            type="number"
+            placeholder="Propina personalizada"
+            value={tip === 0 ? '' : tip}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value) || 0;
+              setTip(val);
+              setAmount((amountToPay + val).toFixed(2));
+            }}
+            className="input-field w-full text-sm"
+            step="0.1"
+            min="0"
+          />
         </div>
 
         <div className="mb-4">
@@ -201,7 +264,7 @@ function PaymentModal({ totalPaid, subtotalTotal, onClose, onConfirm, loading }:
         </div>
 
         <button
-          onClick={() => onConfirm(method, amountToPay)}
+          onClick={() => onConfirm(method, amountToPay + tip, tip)}
           disabled={loading}
           className="btn-primary bg-emerald-600 hover:bg-emerald-700 w-full py-3 flex items-center justify-center gap-2 disabled:opacity-50"
         >
@@ -470,8 +533,16 @@ export default function OrdersPage() {
     }
   })
 
+  const updateType = useMutation({
+    mutationFn: ({ id, type }: { id: number, type: string }) => api.patch(`/orders/${id}/type`, { type }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['tables-pos'] })
+    }
+  })
+
   const registerPayment = useMutation({
-    mutationFn: ({ id, method, amount }: { id: number, method: string, amount: number }) => api.post(`/orders/${id}/payments`, { method, amount }),
+    mutationFn: ({ id, method, amount, tip }: { id: number, method: string, amount: number, tip?: number }) => api.post(`/orders/${id}/payments`, { method, amount, tip }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orders'] })
       setPaymentModal(null)
@@ -489,6 +560,24 @@ export default function OrdersPage() {
         setConfirmState(prev => ({ ...prev, isOpen: false }))
       }
     })
+  }
+
+  const handleToggleType = (order: any) => {
+    if (order.type === 'dine_in') {
+      setConfirmState({
+        isOpen: true,
+        title: 'Cambiar a Para Llevar',
+        message: `¿Deseas cambiar la orden ${order.order_number} a 'Para Llevar'? Esto liberará la mesa ${order.table_name || ''}.`,
+        type: 'warning' as any,
+        onConfirm: () => {
+          updateType.mutate({ id: order.id, type: 'takeaway' })
+          setConfirmState(prev => ({ ...prev, isOpen: false }))
+        }
+      })
+    } else {
+      updateType.mutate({ id: order.id, type: 'dine_in' })
+      setTableModal({ isOpen: true, orderId: order.id })
+    }
   }
 
   // Time elapsed helper — handle UTC timestamps from SQLite (may lack 'Z')
@@ -563,7 +652,7 @@ export default function OrdersPage() {
           )}
           
           {orders.map((order: any) => {
-            const pending = Math.max(0, (order.total || 0) - (order.total_paid || 0))
+            const pending = Math.max(0, (order.total || 0) + (order.tip || 0) - (order.total_paid || 0))
             const isFullyPaid = pending === 0
             return (
               <div
@@ -586,8 +675,13 @@ export default function OrdersPage() {
                       <p className="font-mono text-[11px] text-gray-500 font-medium tracking-wider truncate">{order.order_number}</p>
                       <p className={`text-2xl font-bold mt-0.5 ${
                         tab === 'open' ? 'text-amber-400' : 'text-emerald-400'
-                      }`}>${(order.total || 0).toFixed(2)}</p>
-                      {order.total_paid > 0 && order.total_paid < order.total && (
+                      }`}>${((order.total || 0) + (order.tip || 0)).toFixed(2)}</p>
+                      {order.tip > 0 && (
+                        <p className="text-[10px] text-brand-400 font-semibold mt-0.5">
+                          Orden: ${(order.total || 0).toFixed(2)} + Propina: ${(order.tip || 0).toFixed(2)}
+                        </p>
+                      )}
+                      {order.total_paid > 0 && order.total_paid < ((order.total || 0) + (order.tip || 0)) && (
                         <p className="text-[10px] text-orange-400 font-semibold mt-0.5">
                           Abonado: ${(order.total_paid).toFixed(2)} · Falta: ${pending.toFixed(2)}
                         </p>
@@ -611,8 +705,8 @@ export default function OrdersPage() {
                         : <span className="text-gray-500 italic">Sin asignar</span>
                       }
                     </span>
-                    <span className="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-400 capitalize">
-                      {order.type?.replace('_', ' ')}
+                    <span className="inline-flex items-center text-[11px] font-medium px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-300">
+                      {order.type === 'dine_in' ? 'Comer Aquí' : order.type === 'takeaway' ? 'Para Llevar' : order.type}
                     </span>
                     <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/6 border border-white/8 text-gray-500">
                       <Clock className="w-3 h-3" />
@@ -635,12 +729,30 @@ export default function OrdersPage() {
                             + Añadir Ítems
                           </button>
                           <button
+                            onClick={() => handleToggleType(order)}
+                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center justify-center gap-1"
+                          >
+                            {order.type === 'dine_in' ? (
+                              <>
+                                <ShoppingBag className="w-3.5 h-3.5" />
+                                Llevar
+                              </>
+                            ) : (
+                              <>
+                                <UtensilsCrossed className="w-3.5 h-3.5" />
+                                Comer Aquí
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        {order.type === 'dine_in' && (
+                          <button
                             onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
-                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                            className="w-full py-2 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
                           >
                             Cambiar Mesa
                           </button>
-                        </div>
+                        )}
                         <button
                           onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
                           className="w-full py-2.5 text-xs font-bold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 transition-all"
@@ -656,26 +768,53 @@ export default function OrdersPage() {
                       </>
                     ) : (
                       <>
-                        {!isFullyPaid ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {isFullyPaid ? (
+                            <button
+                              onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
+                              className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                            >
+                              + Añadir más ítems
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
+                              className="py-2 px-3 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 transition-all truncate"
+                              title={`Cobrar Diferencia — $${pending.toFixed(2)}`}
+                            >
+                              ⚠️ Cobrar (${pending.toFixed(2)})
+                            </button>
+                          )}
                           <button
-                            onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
-                            className="w-full py-2.5 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 transition-all"
+                            onClick={() => handleToggleType(order)}
+                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center justify-center gap-1"
                           >
-                            ⚠️ Cobrar Diferencia — ${pending.toFixed(2)}
+                            {order.type === 'dine_in' ? (
+                              <>
+                                <ShoppingBag className="w-3.5 h-3.5" />
+                                Llevar
+                              </>
+                            ) : (
+                              <>
+                                <UtensilsCrossed className="w-3.5 h-3.5" />
+                                Comer Aquí
+                              </>
+                            )}
                           </button>
-                        ) : (
+                        </div>
+                        {order.type === 'dine_in' && (
                           <button
-                            onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
-                            className="w-full py-2 text-xs font-semibold rounded-lg border border-dashed border-brand-500/30 hover:bg-brand-500/10 text-brand-400 transition-all"
+                            onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
+                            className="w-full py-2 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
                           >
-                            + Añadir más ítems
+                            Cambiar Mesa
                           </button>
                         )}
                         <button
                           onClick={() => handleFinalize(order)}
                           className="w-full py-2.5 text-xs font-bold rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 hover:border-brand-500/60 text-brand-400 transition-all"
                         >
-                          ✓ Cerrar Mesa
+                          {order.type === 'dine_in' ? '✓ Cerrar Mesa' : '✓ Finalizar Orden'}
                         </button>
                       </>
                     )}
@@ -698,7 +837,7 @@ export default function OrdersPage() {
           totalPaid={paymentModal.paid}
           subtotalTotal={paymentModal.total}
           onClose={() => setPaymentModal(null)}
-          onConfirm={(method, amount) => registerPayment.mutate({ id: paymentModal.orderId, method, amount })}
+          onConfirm={(method, amount, tip) => registerPayment.mutate({ id: paymentModal.orderId, method, amount, tip })}
           loading={registerPayment.isPending}
         />
       )}
