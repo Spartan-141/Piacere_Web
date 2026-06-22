@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// CATÁLOGO DE PRODUCTOS Y MENÚ
+// ============================================================
+
+model Category {
+  id             Int       @id @default(autoincrement())
+  name           String
+  slug           String    @unique
+  isVisibleOnWeb Boolean   @default(true)
+  sortOrder      Int       @default(0)
+  products       Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  categoryId  Int?
+  name        String
+  description String?
+  basePrice   Float       @default(0)
+  isActive    Boolean     @default(true)
+  isOnWebMenu Boolean     @default(true)
+  imageUrl    String?
+  createdAt   DateTime    @default(now())
+  comboItems  ComboItem[]
+  orderItems  OrderItem[]
+
+  @@map("products")
+}
+
+model Combo {
+  id          Int         @id @default(autoincrement())
+  name        String
+  description String?
+  price       Float       @default(0)
+  isActive    Boolean     @default(true)
+  isOnWebMenu Boolean     @default(true)
+  validFrom   DateTime?
+  validUntil  DateTime?
+  items       ComboItem[]
+  orderItems  OrderItem[]
+
+  @@map("combos")
+}
+
+model ComboItem {
+  id        Int     @id @default(autoincrement())
+  combo     Combo   @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  comboId   Int
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int     @default(1)
+
+  @@map("combo_items")
+}
+
+model ProductExtra {
+  id              Int              @id @default(autoincrement())
+  name            String
+  price           Float            @default(0)
+  isActive        Boolean          @default(true)
+  orderItemExtras OrderItemExtra[]
+
+  @@map("product_extras")
+}
+
+// ============================================================
+// USUARIOS, MESAS Y PEDIDOS
+// ============================================================
+
+model User {
+  id            Int               @id @default(autoincrement())
+  name          String
+  email         String?           @unique
+  phone         String?
+  passwordHash  String?
+  role          String            @default("customer")
+  createdAt     DateTime          @default(now())
+  addresses     CustomerAddress[]
+  orders        Order[]           @relation("CustomerOrders")
+  createdOrders Order[]           @relation("CreatedByOrders")
+
+  @@map("users")
+}
+
+model CustomerAddress {
+  id        Int     @id @default(autoincrement())
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  label     String?
+  address   String
+  city      String?
+  isDefault Boolean @default(false)
+  orders    Order[]
+
+  @@map("customer_addresses")
+}
+
+model TableSection {
+  id       Int     @id @default(autoincrement())
+  name     String
+  prefix   String
+  isActive Boolean @default(true)
+  tables   Table[]
+
+  @@map("table_sections")
+}
+
+model Table {
+  id        Int          @id @default(autoincrement())
+  name      String
+  capacity  Int?
+  section   TableSection @relation(fields: [sectionId], references: [id])
+  sectionId Int
+  status    String       @default("free")
+  orders    Order[]
+
+  @@map("tables")
+}
+
+model Order {
+  id                Int              @id @default(autoincrement())
+  orderNumber       String           @unique
+  type              String
+  status            String           @default("pending")
+  source            String           @default("pos")
+  table             Table?           @relation(fields: [tableId], references: [id])
+  tableId           Int?
+  customer          User?            @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerId        Int?
+  deliveryAddress   CustomerAddress? @relation(fields: [deliveryAddressId], references: [id])
+  deliveryAddressId Int?
+  deliveryNotes     String?
+  subtotal          Float            @default(0)
+  discount          Float            @default(0)
+  tax               Float            @default(0)
+  total             Float            @default(0)
+  paid              Boolean          @default(false)
+  createdBy         User?            @relation("CreatedByOrders", fields: [createdById], references: [id])
+  createdById       Int?
+  tip               Float            @default(0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  items             OrderItem[]
+  payments          Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int              @id @default(autoincrement())
+  order     Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   Int
+  product   Product?         @relation(fields: [productId], references: [id])
+  productId Int?
+  combo     Combo?           @relation(fields: [comboId], references: [id])
+  comboId   Int?
+  quantity  Int              @default(1)
+  unitPrice Float
+  notes     String?
+  extras    OrderItemExtra[]
+
+  @@map("order_items")
+}
+
+model OrderItemExtra {
+  id             Int          @id @default(autoincrement())
+  orderItem      OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  orderItemId    Int
+  productExtra   ProductExtra @relation(fields: [productExtraId], references: [id])
+  productExtraId Int
+  price          Float
+
+  @@map("order_item_extras")
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  order     Order    @relation(fields: [orderId], references: [id])
+  orderId   Int
+  method    String
+  amount    Float
+  reference String?
+  paidAt    DateTime @default(now())
+
+  @@map("payments")
+}
