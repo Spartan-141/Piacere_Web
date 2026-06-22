@@ -27,7 +27,7 @@ customersRouter.get('/', authenticate, requireRole('admin', 'cashier'), (req, re
 });
 
 // GET /api/customers/:id
-customersRouter.get('/:id', authenticate, (req, res) => {
+customersRouter.get('/:id', authenticate, requireRole('admin', 'cashier'), (req, res) => {
   const db = getDb();
   const customer = db.prepare(
     'SELECT id, name, email, phone, created_at FROM users WHERE id = ? AND role = \'customer\''

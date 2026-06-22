@@ -35,9 +35,13 @@ authRouter.post('/login', validate(loginSchema), async (req, res) => {
     return res.status(401).json({ error: 'Credenciales inválidas' });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: 'JWT_SECRET no configurado' });
+  }
+
   const token = jwt.sign(
     { userId: user.id, role: user.role },
-    process.env.JWT_SECRET || 'secret',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as any
   );
 
@@ -64,6 +68,10 @@ authRouter.post('/register', validate(registerSchema), async (req, res) => {
     return res.status(409).json({ error: 'El email ya está registrado' });
   }
 
+  if (!process.env.JWT_SECRET) {
+    return res.status(500).json({ error: 'JWT_SECRET no configurado' });
+  }
+
   const hash = await bcrypt.hash(password, 10);
   const result = db
     .prepare('INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)')
@@ -71,7 +79,7 @@ authRouter.post('/register', validate(registerSchema), async (req, res) => {
 
   const token = jwt.sign(
     { userId: result.lastInsertRowid, role: 'customer' },
-    process.env.JWT_SECRET || 'secret',
+    process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as any
   );
 

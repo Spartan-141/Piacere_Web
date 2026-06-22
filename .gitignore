@@ -37,3 +37,8 @@ coverage/
 
 # Documentation
 Docs/
+
+# .kilocode
+.kilocode/
+.kilocode_cache/
+.kilo/

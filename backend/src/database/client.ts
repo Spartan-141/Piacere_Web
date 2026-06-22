@@ -6,17 +6,36 @@ dotenv.config();
 
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../piacere.db');
 
+interface RowResult {
+  changes: number;
+  lastInsertRowid: number | bigint;
+}
+
+interface Statement {
+  all(...args: any[]): any[];
+  get(...args: any[]): any;
+  run(...args: any[]): RowResult;
+}
+
+interface DatabaseClient {
+  exec(sql: string): void;
+  prepare(sql: string): Statement;
+  transaction(fn: Function): (...args: any[]) => any;
+  pragma(sql: string): void;
+  close(): void;
+}
+
 let _db: any = null;
 
 export function getDb(): any {
   if (!_db) {
     const resolvedPath = path.resolve(DB_PATH);
     try {
-      // Intentar con better-sqlite3 primero
       const Database = require('better-sqlite3');
-      _db = new Database(resolvedPath);
-      _db.pragma('journal_mode = WAL');
-      _db.pragma('foreign_keys = ON');
+      const db = new Database(resolvedPath);
+      db.pragma('journal_mode = WAL');
+      db.pragma('foreign_keys = ON');
+      _db = db;
       console.log('✅ Conectado usando better-sqlite3');
     } catch (err: any) {
       console.warn('⚠️ Falló la carga de better-sqlite3. Intentando con node:sqlite nativo...');
@@ -24,11 +43,9 @@ export function getDb(): any {
         const { DatabaseSync } = require('node:sqlite');
         const nativeDb = new DatabaseSync(resolvedPath);
         
-        // Wrapper para compatibilidad con better-sqlite3
         _db = {
-          native: nativeDb,
           exec: (sql: string) => nativeDb.exec(sql),
-          prepare: (sql: string) => {
+          prepare: (sql: string): Statement => {
             const stmt = nativeDb.prepare(sql);
             return {
               all: (...args: any[]) => stmt.all(...args),

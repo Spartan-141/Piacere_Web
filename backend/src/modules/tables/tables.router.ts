@@ -125,10 +125,9 @@ tablesRouter.get('/:id/active-order', authenticate, (req, res) => {
   if (!order) return res.status(404).json({ error: 'No hay orden activa para esta mesa' });
 
   const items = db.prepare(`
-    SELECT oi.*, p.name AS product_name, pv.name AS variant_name, c.name AS combo_name
+    SELECT oi.*, p.name AS product_name, c.name AS combo_name
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.id
-    LEFT JOIN product_variants pv ON oi.variant_id = pv.id
     LEFT JOIN combos c ON oi.combo_id = c.id
     WHERE oi.order_id = ?
   `).all(order.id);
@@ -158,9 +157,13 @@ tablesRouter.post('/', authenticate, requireRole('admin'), (req, res) => {
   const section: any = db.prepare('SELECT prefix FROM table_sections WHERE id = ?').get(sectionId);
   if (!section) return res.status(404).json({ error: 'Sección no encontrada' });
 
-  // Contar cuántas mesas hay actualmente en esta sección para nombrar (P1, P2...)
-  const countObj: any = db.prepare('SELECT COUNT(*) as cnt FROM tables WHERE section_id = ?').get(sectionId);
-  const nextNum = (countObj.cnt || 0) + 1;
+  // Usar MAX para obtener el número más alto actual (evita colisiones por eliminaciones)
+  const maxNumResult = db.prepare(`
+    SELECT MAX(CAST(SUBSTR(name, LENGTH(prefix) + 1) AS INTEGER)) as maxNum 
+    FROM tables 
+    WHERE section_id = ? AND name GLOB ?
+  `).get(sectionId, `${section.prefix}*`);
+  const nextNum = (maxNumResult.maxNum || 0) + 1;
   const autoName = `${section.prefix}${nextNum}`;
 
   const result = db.prepare(

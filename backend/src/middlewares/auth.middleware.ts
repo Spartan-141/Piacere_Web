@@ -19,7 +19,12 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
 
   const token = authHeader.substring(7);
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'secret') as AuthTokenPayload;
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      res.status(500).json({ error: 'JWT_SECRET no configurado' });
+      return;
+    }
+    const payload = jwt.verify(token, secret) as AuthTokenPayload;
     req.user = payload;
     next();
   } catch {

@@ -3,7 +3,14 @@ import { getDb } from './client';
 
 const db = getDb();
 
-async function seed() {
+function seed() {
+  const hasForce = process.argv.includes('--force');
+  if (!hasForce) {
+    console.error('⚠️  ADVERTENCIA: El seed es destructivo y requiere el flag --force');
+    console.error('   Ejecuta: npm run db:seed -- --force');
+    process.exit(1);
+  }
+  
   console.log('🌱 Iniciando seed de datos Piacere...');
 
   db.exec('PRAGMA foreign_keys = OFF;');

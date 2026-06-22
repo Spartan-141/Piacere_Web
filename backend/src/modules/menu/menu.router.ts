@@ -1,10 +1,10 @@
-import { Router, type Router as RouterType } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
 import { getDb } from '../../database/client';
 import { authenticate, requireRole } from '../../middlewares/auth.middleware';
 import { validate } from '../../middlewares/validate.middleware';
 
-export const menuRouter: RouterType = Router();
+export const menuRouter = Router();
 
 // ── Categorías ──────────────────────────────────────────────
 menuRouter.get('/categories', (req, res) => {
@@ -124,7 +124,7 @@ menuRouter.post('/products', authenticate, requireRole('admin'), validate(produc
   return res.status(201).json({ id: result.lastInsertRowid, ...req.body });
 });
 
-menuRouter.put('/products/:id', authenticate, requireRole('admin', 'cashier'), (req, res) => {
+menuRouter.put('/products/:id', authenticate, requireRole('admin', 'cashier'), validate(productSchema), (req, res) => {
   const db = getDb();
   const { name, description, basePrice, isActive, isOnWebMenu, categoryId, imageUrl } = req.body;
   const id = req.params.id;
@@ -179,34 +179,42 @@ menuRouter.get('/combos', (req, res) => {
   if (webOnly) query += ' AND is_on_web_menu = 1';
 
   const combos = db.prepare(query).all() as any[];
-  const mapped = combos.map((combo) => {
-    const rawItems = db.prepare(
-      `SELECT ci.*, p.name AS product_name
-       FROM combo_items ci
-       JOIN products p ON ci.product_id = p.id
-       WHERE ci.combo_id = ?`
-    ).all(combo.id) as any[];
-    
-    const items = rawItems.map(i => ({
-      id: i.id,
-      comboId: i.combo_id,
-      productId: i.product_id,
-      productName: i.product_name,
-      quantity: i.quantity
-    }));
+  
+  // P1-2: Fix N+1 by fetching all combo_items in one query
+  const comboIds = combos.map(c => c.id);
+  const allComboItems = comboIds.length > 0
+    ? db.prepare(`
+        SELECT ci.*, p.name AS product_name
+        FROM combo_items ci
+        JOIN products p ON ci.product_id = p.id
+        WHERE ci.combo_id IN (${comboIds.map(() => '?').join(',')})
+      `).all(...comboIds) as any[]
+    : [];
 
-    return {
-      id: combo.id,
-      name: combo.name,
-      description: combo.description,
-      price: combo.price,
-      isActive: combo.is_active === 1,
-      isOnWebMenu: combo.is_on_web_menu === 1,
-      validFrom: combo.valid_from,
-      validUntil: combo.valid_until,
-      items
-    };
+  const itemsByComboId = new Map<number, any[]>();
+  allComboItems.forEach((ci: any) => {
+    const existing = itemsByComboId.get(ci.combo_id) || [];
+    existing.push({
+      id: ci.id,
+      comboId: ci.combo_id,
+      productId: ci.product_id,
+      productName: ci.product_name,
+      quantity: ci.quantity
+    });
+    itemsByComboId.set(ci.combo_id, existing);
   });
+
+  const mapped = combos.map((combo: any) => ({
+    id: combo.id,
+    name: combo.name,
+    description: combo.description,
+    price: combo.price,
+    isActive: combo.is_active === 1,
+    isOnWebMenu: combo.is_on_web_menu === 1,
+    validFrom: combo.valid_from,
+    validUntil: combo.valid_until,
+    items: itemsByComboId.get(combo.id) || []
+  }));
   return res.json(mapped);
 });
 
@@ -312,7 +320,7 @@ menuRouter.post('/extras', authenticate, requireRole('admin'), validate(extraSch
   return res.status(201).json({ id: result.lastInsertRowid, ...req.body, isActive: true });
 });
 
-menuRouter.put('/extras/:id', authenticate, requireRole('admin'), (req, res) => {
+menuRouter.put('/extras/:id', authenticate, requireRole('admin'), validate(extraSchema), (req, res) => {
   const db = getDb();
   const { name, price, isActive } = req.body;
   const id = req.params.id;
