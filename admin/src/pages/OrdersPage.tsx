@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2, ShoppingBag, Truck, DoorOpen, Search, ChefHat } from 'lucide-react'
+import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2, ShoppingBag, Truck, DoorOpen, Search, ChefHat, Printer } from 'lucide-react'
 import api from '../services/api'
 import ConfirmModal from '../components/ConfirmModal'
 import { Product, ProductExtra } from '@piacere/contracts'
 import { useCartStore } from '../store/useCartStore'
 import { useNavigate } from 'react-router-dom'
+import { printKitchenTicket } from '../utils/printKitchenTicket'
 
 // ── Order Detail Modal ─────────────────────────────────────
 function OrderDetailModal({ orderId, onClose }: { orderId: number; onClose: () => void }) {
@@ -618,6 +619,36 @@ export default function OrdersPage() {
     }
   }
 
+  // Start preparation: print kitchen ticket then update status to 'preparing'
+  const handleStartPreparation = async (order: any) => {
+    try {
+      // Fetch full order details to get items for the ticket
+      const res = await api.get(`/orders/${order.id}`)
+      const fullOrder = res.data
+      printKitchenTicket({
+        order_number: fullOrder.order_number,
+        table_name: fullOrder.table_name,
+        type: fullOrder.type,
+        created_at: fullOrder.created_at,
+        customer_name: fullOrder.customer_name,
+        items: fullOrder.items ?? [],
+      })
+    } catch {
+      // If fetching details fails, print with basic info from the list
+      printKitchenTicket({
+        order_number: order.order_number,
+        table_name: order.table_name,
+        type: order.type,
+        created_at: order.created_at,
+        customer_name: order.customer_name,
+        items: [],
+      })
+    } finally {
+      // Always update the status regardless of ticket print success
+      updateStatus.mutate({ id: order.id, status: 'preparing' })
+    }
+  }
+
   // Time elapsed helper — handle UTC timestamps from SQLite (may lack 'Z')
   const getTimeElapsed = (isoDate: string) => {
     const raw = isoDate.endsWith('Z') ? isoDate : isoDate + 'Z'
@@ -788,9 +819,10 @@ export default function OrdersPage() {
                   <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5">
                     {['pending', 'confirmed'].includes(order.status) && (
                       <button
-                        onClick={() => updateStatus.mutate({ id: order.id, status: 'preparing' })}
-                        className="w-full py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/20 transition-all"
+                        onClick={() => handleStartPreparation(order)}
+                        className="w-full py-1.5 text-xs font-semibold rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/20 transition-all flex items-center justify-center gap-1.5"
                       >
+                        <Printer className="w-3.5 h-3.5" />
                         👨‍🍳 Empezar Preparación
                       </button>
                     )}
