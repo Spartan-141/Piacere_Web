@@ -28,8 +28,15 @@ export class OrdersService {
         { status: { notIn: ['delivered', 'cancelled'] } },
         { status: 'delivered', tableId: { not: null } },
       ];
-    } else {
+    } else if (paid === 'false') {
       where.status = { notIn: ['delivered', 'cancelled'] };
+    } else {
+      // General dashboard view (both paid and unpaid coexisting):
+      // Return active orders OR delivered orders that still have a table (for "Liberar Mesa" button)
+      where.OR = [
+        { status: { notIn: ['delivered', 'cancelled'] } },
+        { status: 'delivered', tableId: { not: null } },
+      ];
     }
 
     if (paid !== undefined) {
@@ -603,7 +610,7 @@ export class OrdersService {
   async registerPayment(id: number, dto: RegisterPaymentDto) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (!order) {
       throw new NotFoundException('Pedido no encontrado');
@@ -622,6 +629,10 @@ export class OrdersService {
       const updateData: any = { paid: true };
       if (dto.tip !== undefined) {
         updateData.tip = dto.tip;
+      }
+
+      if (order.status === 'served') {
+        updateData.status = 'delivered';
       }
 
       await tx.order.update({
