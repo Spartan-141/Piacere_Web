@@ -161,7 +161,7 @@ function TableSelectModal({ onClose, onSelect, showAll = false }: {
 
         <div className="flex-1 overflow-y-auto pr-2 space-y-6">
           {sections.map((sec: any) => {
-            const secTables = visibleTables.filter((t: any) => t.section_id === sec.id)
+            const secTables = visibleTables.filter((t: any) => t.sectionId === sec.id)
             if (secTables.length === 0) return null
             return (
               <div key={sec.id}>

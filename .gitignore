@@ -42,3 +42,6 @@ Docs/
 .kilocode/
 .kilocode_cache/
 .kilo/
+
+#.agents
+.agents/
