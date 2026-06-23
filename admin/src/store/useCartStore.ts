@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import { Product, ProductExtra } from '@piacere/contracts';
+import { Product, ProductExtra, Combo } from '@piacere/contracts';
 
 export interface CartItem {
-  id: string; // unique key: product-extras
-  productId: number;
+  id: string; // unique key: product-extras or combo
+  productId?: number;
+  comboId?: number;
   name: string;
   extras: ProductExtra[];
   quantity: number;
@@ -22,6 +23,7 @@ interface CartState {
   setDiscount: (amount: number) => void;
 
   addItem: (product: Product, extras?: ProductExtra[]) => void;
+  addCombo: (combo: Combo) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   updateNotes: (id: string, notes: string) => void;
@@ -74,6 +76,34 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
+  addCombo: (combo) => {
+    const id = `combo-${combo.id}`;
+    set((state) => {
+      const existing = state.items.find((i) => i.id === id);
+      if (existing) {
+        return {
+          items: state.items.map((i) =>
+            i.id === id ? { ...i, quantity: i.quantity + 1 } : i
+          ),
+        };
+      }
+      return {
+        items: [
+          ...state.items,
+          {
+            id,
+            comboId: combo.id,
+            name: combo.name,
+            extras: [],
+            quantity: 1,
+            unitPrice: combo.price,
+            notes: '',
+          },
+        ],
+      };
+    });
+  },
+
   removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
 
   updateQuantity: (id, quantity) =>
@@ -94,3 +124,4 @@ export const useCartStore = create<CartState>((set, get) => ({
     return Math.max(0, sub - get().discount);
   },
 }));
+

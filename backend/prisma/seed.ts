@@ -54,10 +54,13 @@ async function main() {
     { name: 'Prosciutto', description: 'Salsa napolitina | mozzarella | prosciutto | parmigiano reggiano | rúgula | AOEV.', basePrice: 16.0 },
   ];
 
+  const createdProducts: Record<string, any> = {};
+
   for (const pizza of pizzas) {
-    await prisma.product.create({
+    const p = await prisma.product.create({
       data: { ...pizza, categoryId: catPizzas.id, isActive: true, isOnWebMenu: true },
     });
+    createdProducts[p.name] = p;
   }
 
   // --- Productos (Bebidas) ---
@@ -71,9 +74,95 @@ async function main() {
   ];
 
   for (const bebida of bebidas) {
-    await prisma.product.create({
+    const p = await prisma.product.create({
       data: { ...bebida, categoryId: catBebidas.id, isActive: true, isOnWebMenu: true },
     });
+    createdProducts[p.name] = p;
+  }
+
+  // --- Combos ---
+  const combosData = [
+    {
+      name: 'Combo Dúo Clásico',
+      description: '2 Pizzas Margaritas + 1 Refresco 1Lt',
+      price: 15.0,
+      items: [
+        { productName: 'Margarita', quantity: 2 },
+        { productName: 'Refresco 1lt', quantity: 1 }
+      ]
+    },
+    {
+      name: 'Combo Familiar',
+      description: '1 Pizza Primavera + 1 Pizza Pepperoni + 1 Refresco 2Lt',
+      price: 22.0,
+      items: [
+        { productName: 'Primavera', quantity: 1 },
+        { productName: 'Pepperoni', quantity: 1 },
+        { productName: 'Refresco 2lt', quantity: 1 }
+      ]
+    },
+    {
+      name: 'Combo Piacere Fiesta',
+      description: '2 Pizzas Piacere + 2 Refrescos 2Lt',
+      price: 34.0,
+      items: [
+        { productName: 'Piacere', quantity: 2 },
+        { productName: 'Refresco 2lt', quantity: 2 }
+      ]
+    },
+    {
+      name: 'Combo Individual',
+      description: '1 Pizza Margarita + 1 Refresco Lata',
+      price: 8.5,
+      items: [
+        { productName: 'Margarita', quantity: 1 },
+        { productName: 'Refresco Lata', quantity: 1 }
+      ]
+    },
+    {
+      name: 'Combo Miami Premium',
+      description: '1 Pizza Miami Style + 1 Pizza La Cúspide + 1 Refresco 2Lt',
+      price: 30.0,
+      items: [
+        { productName: 'Miami Style', quantity: 1 },
+        { productName: 'La Cúspide', quantity: 1 },
+        { productName: 'Refresco 2lt', quantity: 1 }
+      ]
+    },
+    {
+      name: 'Combo Hawaiano Dúo',
+      description: '2 Pizzas Hawaianas + 1 Refresco 2Lt',
+      price: 25.0,
+      items: [
+        { productName: 'Hawaiana', quantity: 2 },
+        { productName: 'Refresco 2lt', quantity: 1 }
+      ]
+    }
+  ];
+
+  for (const comboData of combosData) {
+    const combo = await prisma.combo.create({
+      data: {
+        name: comboData.name,
+        description: comboData.description,
+        price: comboData.price,
+        isActive: true,
+        isOnWebMenu: true
+      }
+    });
+
+    for (const item of comboData.items) {
+      const product = createdProducts[item.productName];
+      if (product) {
+        await prisma.comboItem.create({
+          data: {
+            comboId: combo.id,
+            productId: product.id,
+            quantity: item.quantity
+          }
+        });
+      }
+    }
   }
 
   // --- Extras ---

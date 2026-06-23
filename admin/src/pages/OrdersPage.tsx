@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2, ShoppingBag } from 'lucide-react'
+import { Clock, Plus, CreditCard, X, UtensilsCrossed, Eye, CheckCircle2, AlertCircle, Trash2, ShoppingBag, Truck, DoorOpen } from 'lucide-react'
 import api from '../services/api'
 import ConfirmModal from '../components/ConfirmModal'
 import { Product, ProductExtra } from '@piacere/contracts'
@@ -549,6 +549,57 @@ export default function OrdersPage() {
     }
   })
 
+  const releaseTableMutation = useMutation({
+    mutationFn: (id: number) => api.patch(`/orders/${id}/release-table`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['orders'] })
+      qc.invalidateQueries({ queryKey: ['tables'] })
+      qc.invalidateQueries({ queryKey: ['tables-pos'] })
+    }
+  })
+
+  // Mark an unpaid dine_in order as delivered to the table (food arrived, payment pending)
+  const handleMarkServed = (order: any) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Marcar como Entregada',
+      message: `¿Confirmas que la orden ${order.order_number} fue entregada a la mesa ${order.table_name || ''}? La mesa quedará en estado "Entregada" y la orden permanecerá abierta hasta cobrar.`,
+      type: 'primary',
+      onConfirm: () => {
+        updateStatus.mutate({ id: order.id, status: 'served' })
+        setConfirmState(prev => ({ ...prev, isOpen: false }))
+      }
+    })
+  }
+
+  // Mark a paid order as fully delivered (goes to history, table → served)
+  const handleMarkDelivered = (order: any) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Marcar como Entregada',
+      message: `¿Confirmas que la orden ${order.order_number} fue entregada?${order.table_name ? ` La mesa ${order.table_name} quedará en estado "Entregada".` : ''} La orden pasará al historial.`,
+      type: 'primary',
+      onConfirm: () => {
+        updateStatus.mutate({ id: order.id, status: 'delivered' })
+        setConfirmState(prev => ({ ...prev, isOpen: false }))
+      }
+    })
+  }
+
+  // Release a table from a delivered paid order
+  const handleReleaseTable = (order: any) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Liberar Mesa',
+      message: `¿Deseas liberar la mesa ${order.table_name || ''}? Quedará disponible para nuevos clientes.`,
+      type: 'primary',
+      onConfirm: () => {
+        releaseTableMutation.mutate(order.id)
+        setConfirmState(prev => ({ ...prev, isOpen: false }))
+      }
+    })
+  }
+
   const handleFinalize = (order: any) => {
     setConfirmState({
       isOpen: true,
@@ -721,6 +772,7 @@ export default function OrdersPage() {
                   <div className="flex flex-col gap-2 mt-auto">
                     {tab === 'open' ? (
                       <>
+                        {/* Top utility row */}
                         <div className="grid grid-cols-2 gap-2">
                           <button
                             onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
@@ -733,18 +785,13 @@ export default function OrdersPage() {
                             className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center justify-center gap-1"
                           >
                             {order.type === 'dine_in' ? (
-                              <>
-                                <ShoppingBag className="w-3.5 h-3.5" />
-                                Llevar
-                              </>
+                              <><ShoppingBag className="w-3.5 h-3.5" /> Llevar</>
                             ) : (
-                              <>
-                                <UtensilsCrossed className="w-3.5 h-3.5" />
-                                Comer Aquí
-                              </>
+                              <><UtensilsCrossed className="w-3.5 h-3.5" /> Comer Aquí</>
                             )}
                           </button>
                         </div>
+
                         {order.type === 'dine_in' && (
                           <button
                             onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
@@ -753,69 +800,107 @@ export default function OrdersPage() {
                             Cambiar Mesa
                           </button>
                         )}
+
+                        {/* Badge: already delivered but not yet paid */}
+                        {order.status === 'served' && (
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+                            <Truck className="w-3.5 h-3.5" />
+                            Entregada · Pendiente de cobro
+                          </div>
+                        )}
+
+                        {/* Pay button — more prominent when served */}
                         <button
                           onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
-                          className="w-full py-2.5 text-xs font-bold rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400 transition-all"
+                          className={`w-full py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                            order.status === 'served'
+                              ? 'bg-emerald-500/25 hover:bg-emerald-500/40 border border-emerald-400/50 hover:border-emerald-400 text-emerald-300 shadow-lg shadow-emerald-900/30'
+                              : 'bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/60 text-emerald-400'
+                          }`}
                         >
-                          💳 Cobrar Orden
+                          <CreditCard className="w-3.5 h-3.5" />
+                          {order.status === 'served' ? '💳 Pagar Ahora' : '💳 Cobrar Orden'}
                         </button>
-                        <button
-                          onClick={() => handleFinalize(order)}
-                          className="w-full py-2 text-xs font-medium rounded-lg border border-dashed border-white/10 hover:border-white/25 text-gray-600 hover:text-gray-400 transition-all"
-                        >
-                          Orden Finalizada (sin cobrar)
-                        </button>
+
+                        {/* Mark as served — only if not yet delivered to table */}
+                        {order.status !== 'served' && (
+                          <button
+                            onClick={() => handleMarkServed(order)}
+                            className="w-full py-2 text-xs font-semibold rounded-lg border border-blue-500/25 bg-blue-500/8 hover:bg-blue-500/15 text-blue-400 hover:text-blue-300 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            Marcar Entregada (sin cobrar)
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
-                        <div className="grid grid-cols-2 gap-2">
-                          {isFullyPaid ? (
-                            <button
-                              onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
-                              className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
-                            >
-                              + Añadir más ítems
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
-                              className="py-2 px-3 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 transition-all truncate"
-                              title={`Cobrar Diferencia — $${pending.toFixed(2)}`}
-                            >
-                              ⚠️ Cobrar (${pending.toFixed(2)})
-                            </button>
-                          )}
-                          <button
-                            onClick={() => handleToggleType(order)}
-                            className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center justify-center gap-1"
-                          >
-                            {order.type === 'dine_in' ? (
-                              <>
-                                <ShoppingBag className="w-3.5 h-3.5" />
-                                Llevar
-                              </>
-                            ) : (
-                              <>
-                                <UtensilsCrossed className="w-3.5 h-3.5" />
-                                Comer Aquí
-                              </>
+                        {/* Utility buttons — only when not yet delivered */}
+                        {order.status !== 'delivered' && (
+                          <>
+                            <div className="grid grid-cols-2 gap-2">
+                              {isFullyPaid ? (
+                                <button
+                                  onClick={() => setAddItemsModal({ isOpen: true, orderId: order.id })}
+                                  className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                                >
+                                  + Añadir más ítems
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setPaymentModal({ isOpen: true, orderId: order.id, total: order.total, paid: order.total_paid })}
+                                  className="py-2 px-3 text-xs font-bold rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 hover:border-amber-500/60 text-amber-400 transition-all truncate"
+                                  title={`Cobrar Diferencia — $${pending.toFixed(2)}`}
+                                >
+                                  ⚠️ Cobrar (${pending.toFixed(2)})
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleToggleType(order)}
+                                className="py-2 px-3 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all flex items-center justify-center gap-1"
+                              >
+                                {order.type === 'dine_in' ? (
+                                  <><ShoppingBag className="w-3.5 h-3.5" /> Llevar</>
+                                ) : (
+                                  <><UtensilsCrossed className="w-3.5 h-3.5" /> Comer Aquí</>
+                                )}
+                              </button>
+                            </div>
+                            {order.type === 'dine_in' && (
+                              <button
+                                onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
+                                className="w-full py-2 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
+                              >
+                                Cambiar Mesa
+                              </button>
                             )}
-                          </button>
-                        </div>
-                        {order.type === 'dine_in' && (
-                          <button
-                            onClick={() => setTableModal({ isOpen: true, orderId: order.id })}
-                            className="w-full py-2 text-xs font-semibold rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 transition-all"
-                          >
-                            Cambiar Mesa
-                          </button>
+                          </>
                         )}
-                        <button
-                          onClick={() => handleFinalize(order)}
-                          className="w-full py-2.5 text-xs font-bold rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 hover:border-brand-500/60 text-brand-400 transition-all"
-                        >
-                          {order.type === 'dine_in' ? '✓ Cerrar Mesa' : '✓ Finalizar Orden'}
-                        </button>
+
+                        {/* Primary action: Marcar Entregada or Liberar Mesa */}
+                        {order.status !== 'delivered' ? (
+                          <button
+                            onClick={() => handleMarkDelivered(order)}
+                            className="w-full py-2.5 text-xs font-bold rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 hover:border-brand-500/60 text-brand-400 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <Truck className="w-3.5 h-3.5" />
+                            {order.type === 'dine_in' ? '✅ Marcar Entregada' : '✅ Finalizar Orden'}
+                          </button>
+                        ) : order.table_id ? (
+                          <button
+                            onClick={() => handleReleaseTable(order)}
+                            disabled={releaseTableMutation.isPending}
+                            className="w-full py-2.5 text-xs font-bold rounded-lg bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 hover:border-sky-500/60 text-sky-400 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                          >
+                            <DoorOpen className="w-3.5 h-3.5" />
+                            {releaseTableMutation.isPending ? 'Liberando...' : '🏁 Liberar Mesa'}
+                          </button>
+                        ) : (
+                          <div className="text-center text-xs text-emerald-500/70 py-1 font-medium">
+                            <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                            Entregada y cerrada
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -837,7 +922,12 @@ export default function OrdersPage() {
           totalPaid={paymentModal.paid}
           subtotalTotal={paymentModal.total}
           onClose={() => setPaymentModal(null)}
-          onConfirm={(method, amount, tip) => registerPayment.mutate({ id: paymentModal.orderId, method, amount, tip })}
+          onConfirm={(method, amount, tip) => registerPayment.mutate({ 
+            id: paymentModal.orderId, 
+            method, 
+            amount, 
+            tip: tip > 0 ? tip : undefined 
+          })}
           loading={registerPayment.isPending}
         />
       )}

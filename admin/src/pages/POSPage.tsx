@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Plus, Minus, Trash2, ChevronDown, CreditCard, X, Check, UtensilsCrossed, TableProperties, SendHorizonal, ShoppingBag } from 'lucide-react'
-import { Product, ProductExtra } from '@piacere/contracts'
+import { Product, ProductExtra, Combo } from '@piacere/contracts'
 import api from '../services/api'
 import { useCartStore } from '../store/useCartStore'
 
 const PAYMENT_METHODS = [
   { id: 'cash_usd', label: 'Efectivo USD' },
   { id: 'cash_ves', label: 'Efectivo Bs.' },
-  { id: 'card',     label: 'Tarjeta' },
+  { id: 'card', label: 'Tarjeta' },
   { id: 'transfer', label: 'Transferencia' },
   { id: 'pago_movil', label: 'Pago Móvil' },
 ]
@@ -58,11 +58,10 @@ function PaymentModal({ total, onClose, onConfirm, loading }: {
                     setTip(tipVal);
                     setAmount((total + tipVal).toFixed(2));
                   }}
-                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    isSelected
-                      ? 'bg-brand-500/20 border-brand-500 text-brand-300'
-                      : 'border-white/10 text-gray-400 hover:bg-white/5'
-                  }`}
+                  className={`py-1.5 rounded-lg text-xs font-semibold border transition-all ${isSelected
+                    ? 'bg-brand-500/20 border-brand-500 text-brand-300'
+                    : 'border-white/10 text-gray-400 hover:bg-white/5'
+                    }`}
                 >
                   {pct === 0 ? '0%' : `${pct}%`}
                 </button>
@@ -91,11 +90,10 @@ function PaymentModal({ total, onClose, onConfirm, loading }: {
               <button
                 key={m.id}
                 onClick={() => setMethod(m.id)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
-                  method === m.id
-                    ? 'bg-brand-500/20 border-brand-500/50 text-brand-300'
-                    : 'border-white/10 text-gray-400 hover:bg-white/5'
-                }`}
+                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all ${method === m.id
+                  ? 'bg-brand-500/20 border-brand-500/50 text-brand-300'
+                  : 'border-white/10 text-gray-400 hover:bg-white/5'
+                  }`}
               >
                 {m.label}
               </button>
@@ -173,11 +171,10 @@ function TableSelectModal({ onClose, onSelect, showAll = false }: {
                     <button
                       key={t.id}
                       onClick={() => onSelect(t.id, t.name)}
-                      className={`rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-105 border ${
-                        t.status === 'free'
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
-                      }`}
+                      className={`rounded-xl p-3 flex flex-col items-center justify-center gap-1.5 transition-all hover:scale-105 border ${t.status === 'free'
+                        ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                        : 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                        }`}
                     >
                       <span className="font-bold text-base">{t.name}</span>
                       <span className="text-[10px] uppercase">{t.status === 'free' ? 'Libre' : 'Ocupada'}</span>
@@ -233,11 +230,10 @@ function ExtrasSelectionModal({ product, extras, onClose, onConfirm }: {
               <button
                 key={e.id}
                 onClick={() => toggle(e)}
-                className={`flex justify-between items-center p-3 rounded-lg border text-sm transition-all ${
-                  isSelected
-                    ? 'bg-brand-500/20 border-brand-500 text-brand-300'
-                    : 'bg-white/5 border-white/5 text-gray-300 hover:bg-white/10'
-                }`}
+                className={`flex justify-between items-center p-3 rounded-lg border text-sm transition-all ${isSelected
+                  ? 'bg-brand-500/20 border-brand-500 text-brand-300'
+                  : 'bg-white/5 border-white/5 text-gray-300 hover:bg-white/10'
+                  }`}
               >
                 <span className="font-medium">{e.name}</span>
                 <div className="flex items-center gap-2">
@@ -301,11 +297,10 @@ function CartPanel({ onAssignTable, onPay, onSendToOrders, loading }: {
         <button
           type="button"
           onClick={() => setOrderType('dine_in')}
-          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            orderType === 'dine_in'
-              ? 'bg-brand-500 text-white shadow-md'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
+          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${orderType === 'dine_in'
+            ? 'bg-brand-500 text-white shadow-md'
+            : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
         >
           <UtensilsCrossed className="w-3.5 h-3.5" />
           Comer Aquí
@@ -316,11 +311,10 @@ function CartPanel({ onAssignTable, onPay, onSendToOrders, loading }: {
             setOrderType('takeaway')
             setTable(null)
           }}
-          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            orderType === 'takeaway'
-              ? 'bg-brand-500 text-white shadow-md'
-              : 'text-gray-400 hover:text-white hover:bg-white/5'
-          }`}
+          className={`py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${orderType === 'takeaway'
+            ? 'bg-brand-500 text-white shadow-md'
+            : 'text-gray-400 hover:text-white hover:bg-white/5'
+            }`}
         >
           <ShoppingBag className="w-3.5 h-3.5" />
           Para Llevar
@@ -434,7 +428,7 @@ export default function POSPage() {
   const [showTableSelect, setShowTableSelect] = useState(false)
   const [extrasModalData, setExtrasModalData] = useState<Product | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-  const { addItem, items, total, tableId, setTable, setOrderType } = useCartStore()
+  const { addItem, addCombo, items, total, tableId, setTable, setOrderType } = useCartStore()
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
@@ -451,6 +445,11 @@ export default function POSPage() {
     queryFn: () => api.get(`/menu/products${selectedCategory ? `?categoryId=${selectedCategory}` : ''}`).then(r => r.data),
   })
 
+  const { data: combos = [] } = useQuery<Combo[]>({
+    queryKey: ['combos-active'],
+    queryFn: () => api.get('/menu/combos').then(r => r.data),
+  })
+
   const createOrder = useMutation({
     mutationFn: (data: any) => api.post('/orders', data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['orders'] }),
@@ -458,6 +457,12 @@ export default function POSPage() {
 
   const filtered = products.filter((p: Product) =>
     p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const filteredCombos = combos.filter((c: Combo) =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.description && c.description.toLowerCase().includes(search.toLowerCase())) ||
+    c.items?.some(i => i.productName?.toLowerCase().includes(search.toLowerCase()))
   )
 
   const handleAddToCart = (product: Product) => {
@@ -487,6 +492,7 @@ export default function POSPage() {
       tip,
       items: cartItems.map(i => ({
         productId: i.productId,
+        comboId: i.comboId,
         extraIds: i.extras?.map((e: any) => e.id) || [],
         quantity: i.quantity,
         unitPrice: i.unitPrice,
@@ -559,6 +565,63 @@ export default function POSPage() {
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
           </div>
         </div>
+
+        {/* Combos Section */}
+        {selectedCategory === null && filteredCombos.length > 0 && (
+          <div className="flex-shrink-0 flex flex-col gap-2">
+            <h3 className="text-sm font-semibold text-gray-300">Combos Especiales</h3>
+            <div className="flex overflow-x-auto gap-3 pb-3 pt-1 scrollbar-thin snap-x">
+              {filteredCombos.map((combo: Combo) => (
+                <div
+                  key={combo.id}
+                  onClick={() => addCombo(combo)}
+                  className="relative glass-panel bg-gradient-to-br from-brand-500/10 to-purple-950/10 border border-brand-500/20 p-4 flex flex-col gap-2 hover:from-brand-500/15 hover:to-purple-950/15 hover:border-brand-500/40 hover:shadow-lg hover:shadow-brand-500/5 transition-all cursor-pointer group w-64 md:w-72 flex-shrink-0 snap-start"
+                >
+                  <div className="absolute top-3 right-3 bg-brand-500 text-white font-bold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full shadow-md shadow-brand-500/20">
+                    Combo
+                  </div>
+                  <div className="flex-1 pr-10">
+                    <p className="font-bold text-white text-sm md:text-base leading-tight group-hover:text-brand-300 transition-colors">
+                      {combo.name}
+                    </p>
+                    {/* {combo.description && (
+                      <p className="text-xs text-gray-400 mt-1 line-clamp-2 leading-relaxed">
+                        {combo.description}
+                      </p>
+                    )} */}
+                    {combo.items && combo.items.length > 0 && (
+                      <div className="mt-2.5 pt-2 border-t border-white/5 flex flex-col gap-1">
+                        <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Incluye:</span>
+                        <div className="flex flex-col gap-0.5">
+                          {combo.items.map((item) => (
+                            <span key={item.id} className="text-xs text-brand-200/90 leading-tight">
+                              • {item.quantity}x {item.productName}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
+                    <span className="text-brand-400 font-extrabold text-base">
+                      ${combo.price.toFixed(2)}
+                    </span>
+                    <button
+                      id={`add-combo-${combo.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        addCombo(combo)
+                      }}
+                      className="w-8 h-8 bg-brand-500 hover:bg-brand-600 rounded-lg flex items-center justify-center transition-all shadow-md shadow-brand-500/20 hover:scale-105 active:scale-95"
+                    >
+                      <Plus className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Product Grid */}
         <div className="flex-1 overflow-y-auto">

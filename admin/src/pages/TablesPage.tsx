@@ -145,6 +145,20 @@ export default function TablesPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tables'] }),
   })
 
+  // When marking a table as served via the orders module, keep order in sync
+  const markOrderServed = useMutation({
+    mutationFn: (orderId: number) =>
+      api.patch(`/orders/${orderId}/status`, { status: 'served' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tables'] })
+      qc.invalidateQueries({ queryKey: ['orders'] })
+    },
+    onError: () => {
+      // Fallback: just refresh tables
+      qc.invalidateQueries({ queryKey: ['tables'] })
+    }
+  })
+
   const createTable = useMutation({
     mutationFn: (data: any) => api.post('/tables', data),
     onSuccess: () => {
@@ -284,10 +298,22 @@ export default function TablesPage() {
                   </button>
 
                   <button
-                    onClick={() => updateStatus.mutate({ 
-                      id: table.id, 
-                      status: table.status === 'served' ? 'free' : 'served' 
-                    })}
+                    onClick={() => {
+                      if (table.current_order_id) {
+                        // Sync via order: sets both order.status = served & table.status = served
+                        if (table.status === 'served') {
+                          updateStatus.mutate({ id: table.id, status: 'free' })
+                        } else {
+                          markOrderServed.mutate(table.current_order_id)
+                        }
+                      } else {
+                        // No active order: toggle table status directly
+                        updateStatus.mutate({ 
+                          id: table.id, 
+                          status: table.status === 'served' ? 'free' : 'served' 
+                        })
+                      }
+                    }}
                     className="text-xs py-1.5 rounded-lg font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
                   >
                     {table.status === 'served' ? 'Limpiar' : 'Entregada'}

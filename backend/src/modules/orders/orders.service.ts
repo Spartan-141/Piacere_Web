@@ -22,6 +22,12 @@ export class OrdersService {
     const where: any = {};
     if (status) {
       where.status = status;
+    } else if (paid === 'true') {
+      // Paid tab: include delivered orders that still have a table (for "Liberar Mesa" button)
+      where.OR = [
+        { status: { notIn: ['delivered', 'cancelled'] } },
+        { status: 'delivered', tableId: { not: null } },
+      ];
     } else {
       where.status = { notIn: ['delivered', 'cancelled'] };
     }
@@ -260,10 +266,54 @@ export class OrdersService {
       }
     }
 
+    if (dto.customerId) {
+      const customer = await this.prisma.user.findUnique({
+        where: { id: dto.customerId },
+      });
+      if (!customer) {
+        throw new BadRequestException('Cliente no encontrado');
+      }
+    }
+
+    if (dto.deliveryAddressId) {
+      const address = await this.prisma.customerAddress.findUnique({
+        where: { id: dto.deliveryAddressId },
+      });
+      if (!address) {
+        throw new BadRequestException('Dirección de entrega no encontrada');
+      }
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new BadRequestException('Usuario creador no encontrado');
+    }
+
     const subtotal = dto.items.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
     const discount = dto.discount || 0;
     const total = subtotal - discount;
     const tax = total * 0.16;
+
+    for (const item of dto.items) {
+      if (item.productId) {
+        const product = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+        });
+        if (!product) {
+          throw new BadRequestException(`Producto no encontrado: ${item.productId}`);
+        }
+      }
+      if (item.comboId) {
+        const combo = await this.prisma.combo.findUnique({
+          where: { id: item.comboId },
+        });
+        if (!combo) {
+          throw new BadRequestException(`Combo no encontrado: ${item.comboId}`);
+        }
+      }
+    }
 
     let attempts = 0;
     const maxAttempts = 3;
@@ -501,15 +551,53 @@ export class OrdersService {
         data: { status: dto.status },
       });
 
-      if ((dto.status === 'delivered' || dto.status === 'cancelled') && order.tableId) {
-        await tx.table.update({
-          where: { id: order.tableId },
-          data: { status: 'free' },
-        });
+      if (order.tableId) {
+        if (dto.status === 'served' || dto.status === 'delivered') {
+          // Food delivered to table — mark as "served" (awaiting explicit release or cleanup)
+          await tx.table.update({
+            where: { id: order.tableId },
+            data: { status: 'served' },
+          });
+        } else if (dto.status === 'cancelled') {
+          // Cancelled orders free the table immediately
+          await tx.table.update({
+            where: { id: order.tableId },
+            data: { status: 'free' },
+          });
+        }
       }
     });
 
     return { message: 'Estado actualizado' };
+  }
+
+  async releaseTable(id: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      select: { id: true, tableId: true },
+    });
+    if (!order) {
+      throw new NotFoundException('Pedido no encontrado');
+    }
+
+    if (!order.tableId) {
+      return { message: 'Esta orden no tiene mesa asignada' };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Free the table
+      await tx.table.update({
+        where: { id: order.tableId! },
+        data: { status: 'free' },
+      });
+      // Detach table from order so it no longer shows in the "Pagadas" tab filter
+      await tx.order.update({
+        where: { id },
+        data: { tableId: null },
+      });
+    });
+
+    return { message: 'Mesa liberada exitosamente' };
   }
 
   async registerPayment(id: number, dto: RegisterPaymentDto) {

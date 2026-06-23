@@ -1,4 +1,4 @@
-import { IsEnum, IsNumber, IsOptional, IsPositive, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsPositive, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterPaymentDto {
@@ -18,7 +18,8 @@ export class RegisterPaymentDto {
 
   @ApiPropertyOptional({ example: 2.0 })
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   @IsOptional()
   tip?: number;
 }
+

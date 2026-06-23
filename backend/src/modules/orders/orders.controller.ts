@@ -80,6 +80,13 @@ export class OrdersController {
     return this.ordersService.changeStatus(id, dto);
   }
 
+  @Patch(':id/release-table')
+  @Roles('admin', 'cashier', 'waiter')
+  @ApiOperation({ summary: 'Liberar la mesa de un pedido entregado (Admin, Cashier, Waiter)' })
+  releaseTable(@Param('id', ParseIntPipe) id: number) {
+    return this.ordersService.releaseTable(id);
+  }
+
   @Post(':id/payments')
   @Roles('admin', 'cashier')
   @ApiOperation({ summary: 'Registrar un pago para el pedido (Admin, Cashier)' })

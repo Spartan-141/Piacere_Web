@@ -7,12 +7,12 @@ import { useAuthStore } from '../store/useAuthStore'
 
 const navItems = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/pos',       icon: ShoppingCart,   label: 'POS' },
-  { to: '/tables',    icon: Grid2X2,        label: 'Mesas' },
-  { to: '/orders',    icon: Clock,          label: 'Órdenes' },
-  { to: '/history',   icon: History,        label: 'Historial' },
-  { to: '/menu-cms',  icon: Monitor,        label: 'Menú Web' },
-  { to: '/customers', icon: Users,          label: 'Clientes' },
+  { to: '/pos', icon: ShoppingCart, label: 'POS' },
+  { to: '/tables', icon: Grid2X2, label: 'Mesas' },
+  { to: '/orders', icon: Clock, label: 'Órdenes' },
+  { to: '/history', icon: History, label: 'Historial' },
+  { to: '/menu-cms', icon: Monitor, label: 'Menú' },
+  { to: '/customers', icon: Users, label: 'Clientes' },
 ]
 
 export default function AdminLayout() {
@@ -46,10 +46,9 @@ export default function AdminLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? 'bg-brand-500/20 text-brand-400 shadow-inner'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${isActive
+                  ? 'bg-brand-500/20 text-brand-400 shadow-inner'
+                  : 'text-gray-400 hover:bg-white/5 hover:text-gray-200'
                 }`
               }
             >
